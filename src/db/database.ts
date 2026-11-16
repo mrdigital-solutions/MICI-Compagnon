@@ -44,12 +44,21 @@ class CrohnDatabase extends Dexie {
       .upgrade((tx) => {
         return tx.table('settings').toCollection().modify({ theme: 'light' })
       })
+    this.version(3).stores({
+      injections: '++id, scheduledDate, actualDate, status',
+      dailyEntries: 'date, feverOrInfection',
+      labResults: '++id, date',
+      settings: 'id',
+    })
   }
 }
 
 export const db = new CrohnDatabase()
 
 export async function ensureDefaultSettings(): Promise<AppSettings> {
+  if (typeof navigator !== 'undefined' && navigator.storage?.persist) {
+    navigator.storage.persist().catch(() => {})
+  }
   const existing = await db.settings.get('default')
   if (existing) return existing
   await db.settings.put(DEFAULT_SETTINGS)

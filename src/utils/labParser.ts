@@ -1,10 +1,8 @@
 import * as pdfjsLib from 'pdfjs-dist'
+import pdfWorkerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url'
 import type { LabResult } from '../types'
 
-pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
-  'pdfjs-dist/build/pdf.worker.min.mjs',
-  import.meta.url,
-).toString()
+pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorkerUrl
 
 export type LabMarkerKey =
   | 'crp'
@@ -112,14 +110,37 @@ export function isMarkerOutOfRange(meta: LabMarkerMeta, value?: number): boolean
   return false
 }
 
+function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const timer = window.setTimeout(() => reject(new Error(`Timeout: ${label}`)), ms)
+    promise.then(
+      (val) => {
+        window.clearTimeout(timer)
+        resolve(val)
+      },
+      (err) => {
+        window.clearTimeout(timer)
+        reject(err)
+      },
+    )
+  })
+}
+
 export async function extractTextFromPdf(file: File): Promise<string> {
   const arrayBuffer = await file.arrayBuffer()
-  const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise
+  const loadingTask = pdfjsLib.getDocument({
+    data: new Uint8Array(arrayBuffer),
+    disableFontFace: true,
+    useSystemFonts: true,
+  })
+
+  const pdf = await withTimeout(loadingTask.promise, 10000, 'Chargement PDF')
+  const maxPages = Math.min(pdf.numPages, 8)
   const pagesText: string[] = []
 
-  for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+  for (let pageNum = 1; pageNum <= maxPages; pageNum++) {
     const page = await pdf.getPage(pageNum)
-    const content = await page.getTextContent()
+    const content = await withTimeout(page.getTextContent(), 5000, `Page ${pageNum}`)
     const strings = content.items
       .map((item) => ('str' in item ? item.str : ''))
       .filter(Boolean)
@@ -169,34 +190,34 @@ export function parseLabText(rawText: string): ParsedLabDraft {
   const norm = normalizeLabText(rawText)
   const date = extractDateFromLabText(norm) ?? new Date().toISOString().slice(0, 10)
 
-  // Patterns allow optional [AC] and parenthetical method descriptions between name and value
+  // Patterns allow optional [AC], '<' prefix, spaces around '/', and method descriptions
   const crp = extractMarkerValue(
     norm,
-    /(?:CRP|Prot[ée]ine\s+C\s+R[ée]active)[^0-9]{0,90}?(\d+(?:\.\d+)?)\s*mg\/L/i,
+    /(?:CRP|Prot[ée]ine\s+C\s+R[ée]active)[^0-9]{0,90}?(?:<\s*)?(\d+(?:\.\d+)?)\s*mg\s*\/\s*L/i,
   )
   const calprotectin = extractMarkerValue(
     norm,
-    /Calprotectine(?:\s+f[ée]cale)?[^0-9]{0,90}?(\d+(?:\.\d+)?)\s*(?:µg\/g|ug\/g|mg\/kg)/i,
+    /Calprotectine(?:\s+f[ée]cale)?[^0-9]{0,90}?(?:<\s*)?(\d+(?:\.\d+)?)\s*(?:µg|ug|mg)\s*\/\s*(?:g|kg)/i,
   )
   const alat = extractMarkerValue(
     norm,
-    /ALAT(?:\s*\([^)]*\))?[^0-9]{0,90}?(\d+(?:\.\d+)?)\s*(?:U\/L|UI\/L)/i,
+    /ALAT(?:\s*\([^)]*\))?[^0-9]{0,90}?(\d+(?:\.\d+)?)\s*(?:UI|U)\s*\/\s*L/i,
   )
   const asat = extractMarkerValue(
     norm,
-    /ASAT(?:\s*\([^)]*\))?[^0-9]{0,90}?(\d+(?:\.\d+)?)\s*(?:U\/L|UI\/L)/i,
+    /ASAT(?:\s*\([^)]*\))?[^0-9]{0,90}?(\d+(?:\.\d+)?)\s*(?:UI|U)\s*\/\s*L/i,
   )
   const ggt = extractMarkerValue(
     norm,
-    /GGT(?:\s*\([^)]*\))?[^0-9]{0,90}?(\d+(?:\.\d+)?)\s*(?:U\/L|UI\/L)/i,
+    /GGT(?:\s*\([^)]*\))?[^0-9]{0,90}?(\d+(?:\.\d+)?)\s*(?:UI|U)\s*\/\s*L/i,
   )
   const leukocytes = extractMarkerValue(
     norm,
-    /Leucocytes[^0-9]{0,60}?(\d+(?:\.\d+)?)\s*(?:G\/L|10\^9\/L)/i,
+    /Leucocytes[^0-9]{0,60}?(\d+(?:\.\d+)?)\s*(?:G\s*\/\s*L|10\^9\/L)/i,
   )
   const erythrocytes = extractMarkerValue(
     norm,
-    /H[ée]maties[^0-9]{0,60}?(\d+(?:\.\d+)?)\s*(?:T\/L|10\^12\/L)/i,
+    /H[ée]maties[^0-9]{0,60}?(\d+(?:\.\d+)?)\s*(?:T\s*\/\s*L|10\^12\/L)/i,
   )
   const vgm = extractMarkerValue(
     norm,

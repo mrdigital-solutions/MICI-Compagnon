@@ -1,4 +1,4 @@
-import { FileUp, FlaskConical, Plus, Trash2, TrendingUp } from 'lucide-react'
+import { FileText, FileUp, FlaskConical, Plus, Trash2, TrendingUp } from 'lucide-react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useMemo, useState } from 'react'
 import {
@@ -54,6 +54,17 @@ export function LabsTab() {
   async function handleDelete(id?: number) {
     if (id === undefined) return
     await db.labResults.delete(id)
+  }
+
+  function handleOpenStoredPdf(blob: Blob, fileName?: string) {
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.target = '_blank'
+    a.rel = 'noopener noreferrer'
+    if (fileName) a.download = fileName
+    a.click()
+    window.setTimeout(() => URL.revokeObjectURL(url), 10000)
   }
 
   return (
@@ -280,15 +291,28 @@ export function LabsTab() {
                         </td>
                       )
                     })}
-                    <td className="py-3 pl-2 text-right">
-                      <button
-                        type="button"
-                        onClick={() => handleDelete(row.id)}
-                        aria-label="Supprimer le bilan"
-                        className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
+                    <td className="py-3 pl-2 text-right whitespace-nowrap">
+                      <div className="inline-flex items-center gap-1">
+                        {row.pdfBlob && (
+                          <button
+                            type="button"
+                            onClick={() => handleOpenStoredPdf(row.pdfBlob!, row.pdfFileName)}
+                            title={row.pdfFileName || 'Ouvrir le PDF enregistré'}
+                            aria-label="Ouvrir le PDF"
+                            className="p-1.5 rounded-lg text-teal-600 hover:bg-teal-50 dark:hover:bg-teal-950/40 transition-colors"
+                          >
+                            <FileText className="w-4 h-4" />
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => handleDelete(row.id)}
+                          aria-label="Supprimer le bilan"
+                          className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}

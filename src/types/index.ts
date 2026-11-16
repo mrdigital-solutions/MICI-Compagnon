@@ -75,6 +75,8 @@ export interface LabResult {
   erythrocytes?: number // T/L
   vgm?: number // fL
   notes?: string
+  pdfFileName?: string
+  pdfBlob?: Blob
   createdAt: string
 }
 

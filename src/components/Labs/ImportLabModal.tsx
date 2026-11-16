@@ -1,4 +1,12 @@
-import { CheckCircle2, ClipboardPaste, FileUp, Loader2, Sparkles, X } from 'lucide-react'
+import {
+  AlertCircle,
+  CheckCircle2,
+  ClipboardPaste,
+  FileUp,
+  Loader2,
+  Sparkles,
+  X,
+} from 'lucide-react'
 import { useRef, useState } from 'react'
 import { db } from '../../db/database'
 import {
@@ -18,7 +26,10 @@ export function ImportLabModal({ initialMode = 'import', onClose }: ImportLabMod
   const [mode, setMode] = useState<'import' | 'manual'>(initialMode)
   const [rawText, setRawText] = useState('')
   const [parsing, setParsing] = useState(false)
-  const [parseMessage, setParseMessage] = useState<string | null>(null)
+  const [parseMessage, setParseMessage] = useState<{
+    type: 'success' | 'warning'
+    text: string
+  } | null>(null)
   const [saving, setSaving] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
 
@@ -27,32 +38,61 @@ export function ImportLabModal({ initialMode = 'import', onClose }: ImportLabMod
     notes: '',
   })
 
-  function applyParsedText(text: string, sourceLabel: string) {
+  function applyParsedText(text: string, sourceLabel: string, extra?: Partial<ParsedLabDraft>) {
     const parsed = parseLabText(text)
     const foundCount = LAB_MARKERS.filter((m) => parsed[m.key] !== undefined).length
     setDraft((prev) => ({
       ...prev,
       ...parsed,
+      ...extra,
       notes: prev.notes || sourceLabel,
     }))
-    setParseMessage(
-      foundCount > 0
-        ? `${foundCount} marqueur${foundCount > 1 ? 's' : ''} extrait${foundCount > 1 ? 's' : ''} automatiquement (${sourceLabel}). Vérifiez ci-dessous puis enregistrez.`
-        : 'Aucune valeur reconnue automatiquement. Vous pouvez compléter manuellement ci-dessous.',
-    )
+    if (foundCount > 0) {
+      setParseMessage({
+        type: 'success',
+        text: `${foundCount} marqueur${foundCount > 1 ? 's' : ''} extrait${foundCount > 1 ? 's' : ''} (${sourceLabel}). Cliquez sur « Enregistrer » en bas.`,
+      })
+    } else {
+      setParseMessage({
+        type: 'warning',
+        text: text.trim().length < 20
+          ? 'PDF scanné (image sans texte) : le PDF sera conservé, saisissez vos valeurs ci-dessous puis enregistrez.'
+          : 'Aucune valeur reconnue automatiquement. Complétez manuellement ci-dessous puis enregistrez.',
+      })
+    }
   }
 
   async function handlePdfUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
+    e.target.value = '' // Always reset so re-selecting works on Android
     if (!file) return
+
     setParsing(true)
     setParseMessage(null)
+
+    // Store the PDF blob immediately so it is never lost even if parsing fails/times out
+    const pdfBlob = new Blob([await file.arrayBuffer()], {
+      type: file.type || 'application/pdf',
+    })
+
     try {
       const text = await extractTextFromPdf(file)
       setRawText(text)
-      applyParsedText(text, `Import PDF : ${file.name}`)
+      applyParsedText(text, `Import PDF : ${file.name}`, {
+        pdfFileName: file.name,
+        pdfBlob,
+      })
     } catch {
-      setParseMessage("Impossible de lire ce PDF. Essayez de copier-coller le texte brut.")
+      setDraft((prev) => ({
+        ...prev,
+        pdfFileName: file.name,
+        pdfBlob,
+        notes: prev.notes || `Import PDF : ${file.name}`,
+      }))
+      setParseMessage({
+        type: 'warning',
+        text: `PDF « ${file.name} » attaché, mais lecture automatique impossible sur ce fichier. Saisissez les valeurs puis cliquez sur « Enregistrer ».`,
+      })
     } finally {
       setParsing(false)
     }
@@ -88,7 +128,10 @@ export function ImportLabModal({ initialMode = 'import', onClose }: ImportLabMod
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-xs p-0 sm:p-4">
-      <div className="w-full max-w-xl max-h-[92vh] flex flex-col rounded-t-3xl sm:rounded-3xl bg-[#FFFCF8] dark:bg-slate-900 border border-amber-200/60 dark:border-slate-800 shadow-2xl overflow-hidden">
+      <form
+        onSubmit={handleSubmit}
+        className="w-full max-w-xl max-h-[92vh] flex flex-col rounded-t-3xl sm:rounded-3xl bg-[#FFFCF8] dark:bg-slate-900 border border-amber-200/60 dark:border-slate-800 shadow-2xl overflow-hidden"
+      >
         <div className="flex items-center justify-between px-5 py-4 border-b border-amber-100 dark:border-slate-800 shrink-0">
           <div className="flex items-center gap-2.5">
             <div className="p-2 rounded-xl bg-teal-500/15 text-teal-600 dark:text-teal-400">
@@ -99,7 +142,7 @@ export function ImportLabModal({ initialMode = 'import', onClose }: ImportLabMod
                 Ajouter un bilan biologique
               </h2>
               <p className="text-xs text-slate-500 dark:text-slate-400">
-                Import PDF automatique (Biogroup, etc.) ou saisie manuelle
+                Le PDF et les valeurs sont conservés hors-ligne
               </p>
             </div>
           </div>
@@ -112,7 +155,7 @@ export function ImportLabModal({ initialMode = 'import', onClose }: ImportLabMod
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-5 space-y-5 overflow-y-auto">
+        <div className="p-5 space-y-5 overflow-y-auto flex-1">
           {/* Mode switcher */}
           <div className="grid grid-cols-2 gap-1.5 p-1 rounded-2xl bg-slate-100 dark:bg-slate-800">
             <button
@@ -154,17 +197,21 @@ export function ImportLabModal({ initialMode = 'import', onClose }: ImportLabMod
                 )}
                 <div className="text-center">
                   <p className="text-sm font-bold text-slate-800 dark:text-slate-100">
-                    {parsing ? 'Analyse du PDF en cours...' : 'Sélectionner un PDF de laboratoire'}
+                    {parsing
+                      ? 'Analyse du PDF en cours...'
+                      : draft.pdfFileName
+                        ? `PDF sélectionné : ${draft.pdfFileName}`
+                        : 'Sélectionner un PDF de laboratoire'}
                   </p>
                   <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
-                    Traitement 100% local sur votre appareil, aucune donnée envoyée en ligne
+                    Stocké localement sur votre appareil, aucune donnée envoyée en ligne
                   </p>
                 </div>
               </button>
               <input
                 ref={fileRef}
                 type="file"
-                accept="application/pdf"
+                accept=".pdf,application/pdf"
                 onChange={handlePdfUpload}
                 className="hidden"
               />
@@ -193,9 +240,19 @@ export function ImportLabModal({ initialMode = 'import', onClose }: ImportLabMod
               </div>
 
               {parseMessage && (
-                <div className="flex items-start gap-2 p-3 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/50 text-xs text-emerald-800 dark:text-emerald-200">
-                  <CheckCircle2 className="w-4 h-4 shrink-0 mt-0.5 text-emerald-600" />
-                  <span>{parseMessage}</span>
+                <div
+                  className={`flex items-start gap-2 p-3 rounded-2xl border text-xs ${
+                    parseMessage.type === 'success'
+                      ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-800/50 text-emerald-800 dark:text-emerald-200'
+                      : 'bg-amber-50 dark:bg-amber-950/40 border-amber-200 dark:border-amber-800/50 text-amber-800 dark:text-amber-200'
+                  }`}
+                >
+                  {parseMessage.type === 'success' ? (
+                    <CheckCircle2 className="w-4 h-4 shrink-0 mt-0.5 text-emerald-600" />
+                  ) : (
+                    <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-amber-600" />
+                  )}
+                  <span>{parseMessage.text}</span>
                 </div>
               )}
             </div>
@@ -255,25 +312,26 @@ export function ImportLabModal({ initialMode = 'import', onClose }: ImportLabMod
               />
             </div>
           </div>
+        </div>
 
-          <div className="flex gap-2.5 pt-1">
-            <button
-              type="button"
-              onClick={onClose}
-              className="flex-1 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 text-sm font-semibold text-slate-700 dark:text-slate-300"
-            >
-              Annuler
-            </button>
-            <button
-              type="submit"
-              disabled={saving}
-              className="flex-1 py-3 rounded-2xl bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-700 hover:to-emerald-700 text-white text-sm font-semibold shadow-sm"
-            >
-              {saving ? 'Enregistrement...' : 'Enregistrer le bilan'}
-            </button>
-          </div>
-        </form>
-      </div>
+        {/* Sticky footer always visible on mobile */}
+        <div className="px-5 py-3.5 border-t border-amber-100 dark:border-slate-800 bg-[#FFFCF8] dark:bg-slate-900 flex gap-2.5 shrink-0">
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex-1 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 text-sm font-semibold text-slate-700 dark:text-slate-300"
+          >
+            Annuler
+          </button>
+          <button
+            type="submit"
+            disabled={saving || parsing}
+            className="flex-1 py-3 rounded-2xl bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-700 hover:to-emerald-700 disabled:opacity-50 text-white text-sm font-semibold shadow-sm"
+          >
+            {saving ? 'Enregistrement...' : 'Enregistrer le bilan'}
+          </button>
+        </div>
+      </form>
     </div>
   )
 }

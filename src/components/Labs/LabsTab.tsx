@@ -293,7 +293,7 @@ export function LabsTab() {
                     })}
                     <td className="py-3 pl-2 text-right whitespace-nowrap">
                       <div className="inline-flex items-center gap-1">
-                        {row.pdfBlob && (
+                        {row.pdfBlob instanceof Blob && (
                           <button
                             type="button"
                             onClick={() => handleOpenStoredPdf(row.pdfBlob!, row.pdfFileName)}

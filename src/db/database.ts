@@ -337,12 +337,14 @@ export async function exportAllDataToJson(): Promise<string> {
     db.settings.toArray(),
   ])
 
+  const serializableLabs = labResults.map(({ pdfBlob: _blob, ...rest }) => rest)
+
   return JSON.stringify(
     {
       version: 1,
       exportedAt: new Date().toISOString(),
-      app: 'crohn-suivi',
-      data: { injections, dailyEntries, labResults, settings },
+      app: 'mici-compagnon',
+      data: { injections, dailyEntries, labResults: serializableLabs, settings },
     },
     null,
     2,

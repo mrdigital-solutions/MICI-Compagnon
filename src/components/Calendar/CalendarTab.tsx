@@ -47,9 +47,8 @@ function getSymptomDotClass(entry: DailyEntry): string {
 
 export function CalendarTab({ settings, onSelectDay }: CalendarTabProps) {
   const today = getTodayKey()
-  const now = new Date()
-  const [viewYear, setViewYear] = useState(now.getFullYear())
-  const [viewMonth, setViewMonth] = useState(now.getMonth())
+  const [viewYear, setViewYear] = useState(() => new Date().getFullYear())
+  const [viewMonth, setViewMonth] = useState(() => new Date().getMonth())
 
   const [confirmTarget, setConfirmTarget] = useState<InjectionRecord | null>(null)
   const [shiftTarget, setShiftTarget] = useState<InjectionRecord | null>(null)

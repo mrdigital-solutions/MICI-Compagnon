@@ -33,10 +33,10 @@ export function ImportLabModal({ initialMode = 'import', onClose }: ImportLabMod
   const [saving, setSaving] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
 
-  const [draft, setDraft] = useState<ParsedLabDraft>({
+  const [draft, setDraft] = useState<ParsedLabDraft>(() => ({
     date: new Date().toISOString().slice(0, 10),
     notes: '',
-  })
+  }))
 
   function applyParsedText(text: string, sourceLabel: string, extra?: Partial<ParsedLabDraft>) {
     const parsed = parseLabText(text)

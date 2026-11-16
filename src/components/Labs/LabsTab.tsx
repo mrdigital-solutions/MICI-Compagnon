@@ -12,6 +12,7 @@ import {
   YAxis,
 } from 'recharts'
 import { db } from '../../db/database'
+import type { LabResult } from '../../types'
 import { formatShortDateFr } from '../../utils/dateUtils'
 import {
   LAB_MARKERS,
@@ -32,18 +33,32 @@ export function LabsTab() {
   )
 
   const chartData = useMemo(() => {
-    return (labResults ?? [])
-      .filter((r) => r[selectedMarker] !== undefined)
-      .map((r) => ({
-        dateLabel: formatShortDateFr(r.date),
-        date: r.date,
-        value: r[selectedMarker],
-      }))
+    const byDate = new Map<string, number>()
+    for (const r of labResults ?? []) {
+      const val = r[selectedMarker]
+      if (val !== undefined) {
+        byDate.set(r.date, val)
+      }
+    }
+    return Array.from(byDate.entries()).map(([date, value]) => ({
+      dateLabel: formatShortDateFr(date),
+      date,
+      value,
+    }))
   }, [labResults, selectedMarker])
 
-  const latestResult = useMemo(() => {
-    if (!labResults || labResults.length === 0) return undefined
-    return labResults[labResults.length - 1]
+  const latestByMarker = useMemo(() => {
+    const result: Partial<Record<LabMarkerKey, LabResult>> = {}
+    for (const meta of LAB_MARKERS) {
+      for (let i = (labResults?.length ?? 0) - 1; i >= 0; i--) {
+        const entry = labResults![i]
+        if (entry[meta.key] !== undefined) {
+          result[meta.key] = entry
+          break
+        }
+      }
+    }
+    return result
   }, [labResults])
 
   const reversedResults = useMemo(
@@ -106,10 +121,11 @@ export function LabsTab() {
       </section>
 
       {/* Latest snapshot cards */}
-      {latestResult && (
+      {(labResults?.length ?? 0) > 0 && (
         <section className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {LAB_MARKERS.slice(0, 4).map((meta) => {
-            const val = latestResult[meta.key]
+            const markerResult = latestByMarker[meta.key]
+            const val = markerResult?.[meta.key]
             const outOfRange = isMarkerOutOfRange(meta, val)
             return (
               <button
@@ -143,7 +159,7 @@ export function LabsTab() {
                   </span>
                 </div>
                 <p className="text-[10px] text-slate-400 mt-1">
-                  Dernier : {formatShortDateFr(latestResult.date)}
+                  {markerResult ? `Dernier : ${formatShortDateFr(markerResult.date)}` : 'Aucune donnée'}
                 </p>
               </button>
             )

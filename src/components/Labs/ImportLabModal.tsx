@@ -112,10 +112,35 @@ export function ImportLabModal({ initialMode = 'import', onClose }: ImportLabMod
     e.preventDefault()
     setSaving(true)
     try {
-      await db.labResults.add({
-        ...draft,
-        createdAt: new Date().toISOString(),
-      })
+      const existing = await db.labResults.where('date').equals(draft.date).toArray()
+      if (existing.length > 0) {
+        const base = existing[0]
+        const definedUpdates: Partial<ParsedLabDraft> = {}
+        for (const marker of LAB_MARKERS) {
+          if (draft[marker.key] !== undefined) {
+            definedUpdates[marker.key] = draft[marker.key]
+          }
+        }
+        if (draft.notes?.trim()) definedUpdates.notes = draft.notes.trim()
+        if (draft.pdfFileName) definedUpdates.pdfFileName = draft.pdfFileName
+        if (draft.pdfBlob) definedUpdates.pdfBlob = draft.pdfBlob
+
+        if (base.id !== undefined) {
+          await db.labResults.update(base.id, definedUpdates)
+        }
+        const extraIds = existing
+          .slice(1)
+          .map((item) => item.id)
+          .filter((id): id is number => id !== undefined)
+        if (extraIds.length > 0) {
+          await db.labResults.bulkDelete(extraIds)
+        }
+      } else {
+        await db.labResults.add({
+          ...draft,
+          createdAt: new Date().toISOString(),
+        })
+      }
       onClose()
     } finally {
       setSaving(false)

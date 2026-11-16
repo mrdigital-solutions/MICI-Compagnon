@@ -81,6 +81,18 @@ export function SettingsModal({ settings, onClose }: SettingsModalProps) {
     }
   }
 
+  async function handleForceAppUpdate() {
+    if ('serviceWorker' in navigator) {
+      const registrations = await navigator.serviceWorker.getRegistrations()
+      await Promise.all(registrations.map((reg) => reg.unregister()))
+    }
+    if ('caches' in window) {
+      const cacheKeys = await window.caches.keys()
+      await Promise.all(cacheKeys.map((key) => window.caches.delete(key)))
+    }
+    window.location.reload()
+  }
+
   async function handleResetAll() {
     await db.transaction(
       'rw',
@@ -284,6 +296,18 @@ export function SettingsModal({ settings, onClose }: SettingsModalProps) {
                   {feedback}
                 </p>
               )}
+
+              {/* Force PWA cache refresh (preserves IndexedDB data) */}
+              <div className="pt-3 border-t border-slate-100 dark:border-slate-800 space-y-1">
+                <button
+                  type="button"
+                  onClick={handleForceAppUpdate}
+                  className="w-full flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl text-xs font-semibold text-teal-700 dark:text-teal-300 bg-teal-50/70 dark:bg-teal-950/30 hover:bg-teal-100/70 transition-colors"
+                >
+                  <RefreshCw className="w-4 h-4" />
+                  Forcer la mise à jour de l'application
+                </button>
+              </div>
 
               {/* Reset local data */}
               <div className="pt-3 border-t border-slate-100 dark:border-slate-800">

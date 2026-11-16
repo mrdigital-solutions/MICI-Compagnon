@@ -21,6 +21,10 @@ import {
 } from '../../utils/labParser'
 import { ImportLabModal } from './ImportLabModal'
 
+function isValidLabNumber(val: unknown): val is number {
+  return typeof val === 'number' && Number.isFinite(val)
+}
+
 export function LabsTab() {
   const [modalMode, setModalMode] = useState<'import' | 'manual' | null>(null)
   const [selectedMarker, setSelectedMarker] = useState<LabMarkerKey>('crp')
@@ -36,7 +40,7 @@ export function LabsTab() {
     const byDate = new Map<string, number>()
     for (const r of labResults ?? []) {
       const val = r[selectedMarker]
-      if (val !== undefined) {
+      if (isValidLabNumber(val)) {
         byDate.set(r.date, val)
       }
     }
@@ -52,7 +56,7 @@ export function LabsTab() {
     for (const meta of LAB_MARKERS) {
       for (let i = (labResults?.length ?? 0) - 1; i >= 0; i--) {
         const entry = labResults![i]
-        if (entry[meta.key] !== undefined) {
+        if (isValidLabNumber(entry[meta.key])) {
           result[meta.key] = entry
           break
         }
@@ -125,7 +129,8 @@ export function LabsTab() {
         <section className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {LAB_MARKERS.slice(0, 4).map((meta) => {
             const markerResult = latestByMarker[meta.key]
-            const val = markerResult?.[meta.key]
+            const rawVal = markerResult?.[meta.key]
+            const val = isValidLabNumber(rawVal) ? rawVal : undefined
             const outOfRange = isMarkerOutOfRange(meta, val)
             return (
               <button
@@ -287,7 +292,8 @@ export function LabsTab() {
                       {formatShortDateFr(row.date)}
                     </td>
                     {LAB_MARKERS.map((m) => {
-                      const val = row[m.key]
+                      const rawVal = row[m.key]
+                      const val = isValidLabNumber(rawVal) ? rawVal : undefined
                       const out = isMarkerOutOfRange(m, val)
                       return (
                         <td key={m.key} className="py-3 px-2 whitespace-nowrap">

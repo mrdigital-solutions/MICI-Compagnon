@@ -190,43 +190,45 @@ export type ParsedLabDraft = Omit<LabResult, 'id' | 'createdAt'>
 export function parseLabText(rawText: string): ParsedLabDraft {
   const norm = normalizeLabText(rawText)
   const date = extractDateFromLabText(norm) ?? new Date().toISOString().slice(0, 10)
+  // Strip dd-mm-yyyy / dd/mm/yyyy dates so anteriority dates between marker name and value never break matching
+  const textNoDates = norm.replace(/\b\d{2}[-/]\d{2}[-/]\d{4}\b/g, ' ')
 
   // Patterns allow optional [AC], '<' prefix, out-of-range flags (*, H, ↑), spaces around '/', and method descriptions
   const crp = extractMarkerValue(
-    norm,
+    textNoDates,
     /(?:CRP|Prot[ée]ine\s+C\s+R[ée]active)[^0-9]{0,100}?(?:<\s*)?(\d+(?:\.\d+)?)\s*(?:[*H↑!]\s*)?mg\s*\/\s*L/i,
   )
   const calprotectin =
     extractMarkerValue(
-      norm,
-      /Calprotectine(?:\s+f[ée]cale|\s+dans\s+les\s+selles)?[\s\S]{0,180}?(?:<\s*)?(\d+(?:\.\d+)?)\s*(?:[*H↑!]\s*)?(?:µg|ug|mcg|mg)\s*\/\s*(?:g|kg)/i,
+      textNoDates,
+      /Calprotectine(?:\s+f[ée]cale|\s+dans\s+les\s+selles)?[\s\S]{0,220}?(?<!\()\b(\d+(?:\.\d+)?)\s*(?:[*H↑!]\s*)?(?:µg|ug|mcg|mg)\s*\/\s*(?:g|kg)/i,
     ) ??
     extractMarkerValue(
-      norm,
-      /Calprotectine(?:\s+f[ée]cale|\s+dans\s+les\s+selles)?[^0-9]{0,120}?(?:<\s*)?(\d+(?:\.\d+)?)(?!\s*[-/]\d{2})/i,
+      textNoDates,
+      /Calprotectine(?:\s+f[ée]cale|\s+dans\s+les\s+selles)?[^0-9]{0,140}?(?:<\s*)?(\d+(?:\.\d+)?)/i,
     )
   const alat = extractMarkerValue(
-    norm,
+    textNoDates,
     /ALAT(?:\s*\([^)]*\))?[^0-9]{0,100}?(\d+(?:\.\d+)?)\s*(?:[*H↑!]\s*)?(?:UI|U)\s*\/\s*L/i,
   )
   const asat = extractMarkerValue(
-    norm,
+    textNoDates,
     /ASAT(?:\s*\([^)]*\))?[^0-9]{0,100}?(\d+(?:\.\d+)?)\s*(?:[*H↑!]\s*)?(?:UI|U)\s*\/\s*L/i,
   )
   const ggt = extractMarkerValue(
-    norm,
+    textNoDates,
     /GGT(?:\s*\([^)]*\))?[^0-9]{0,100}?(\d+(?:\.\d+)?)\s*(?:[*H↑!]\s*)?(?:UI|U)\s*\/\s*L/i,
   )
   const leukocytes = extractMarkerValue(
-    norm,
+    textNoDates,
     /Leucocytes[^0-9]{0,80}?(\d+(?:\.\d+)?)\s*(?:[*H↑!]\s*)?(?:G\s*\/\s*L|10\^9\/L)/i,
   )
   const erythrocytes = extractMarkerValue(
-    norm,
+    textNoDates,
     /H[ée]maties[^0-9]{0,80}?(\d+(?:\.\d+)?)\s*(?:[*H↑!]\s*)?(?:T\s*\/\s*L|10\^12\/L)/i,
   )
   const vgm = extractMarkerValue(
-    norm,
+    textNoDates,
     /V\.?G\.?M\.?[^0-9]{0,80}?(\d+(?:\.\d+)?)\s*(?:[*H↑!]\s*)?fL/i,
   )
 

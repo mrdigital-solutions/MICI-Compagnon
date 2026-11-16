@@ -23,7 +23,9 @@ interface ImportLabModalProps {
 }
 
 export function ImportLabModal({ initialMode = 'import', onClose }: ImportLabModalProps) {
-  const [mode, setMode] = useState<'import' | 'manual'>(initialMode)
+  const [mode, setMode] = useState<'pdf' | 'text' | 'manual'>(
+    initialMode === 'manual' ? 'manual' : 'pdf',
+  )
   const [rawText, setRawText] = useState('')
   const [parsing, setParsing] = useState(false)
   const [parseMessage, setParseMessage] = useState<{
@@ -50,34 +52,33 @@ export function ImportLabModal({ initialMode = 'import', onClose }: ImportLabMod
     if (foundCount > 0) {
       setParseMessage({
         type: 'success',
-        text: `${foundCount} marqueur${foundCount > 1 ? 's' : ''} extrait${foundCount > 1 ? 's' : ''} (${sourceLabel}). Cliquez sur « Enregistrer » en bas.`,
+        text: `${foundCount} valeur${foundCount > 1 ? 's' : ''} extraite${foundCount > 1 ? 's' : ''} automatiquement. Cliquez sur « Enregistrer le bilan » en bas.`,
       })
     } else {
       setParseMessage({
         type: 'warning',
-        text: text.trim().length < 20
-          ? 'PDF scanné (image sans texte) : le PDF sera conservé, saisissez vos valeurs ci-dessous puis enregistrez.'
-          : 'Aucune valeur reconnue automatiquement. Complétez manuellement ci-dessous puis enregistrez.',
+        text:
+          text.trim().length < 20
+            ? 'Ce PDF est une image scannée : le PDF est bien attaché, complétez vos chiffres ci-dessous puis cliquez sur « Enregistrer le bilan ».'
+            : 'Le PDF est attaché. Vérifiez ou complétez vos valeurs ci-dessous puis cliquez sur « Enregistrer le bilan ».',
       })
     }
   }
 
   async function handlePdfUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
-    e.target.value = '' // Always reset so re-selecting works on Android
+    e.target.value = ''
     if (!file) return
 
     setParsing(true)
     setParseMessage(null)
 
-    // Store the PDF blob immediately so it is never lost even if parsing fails/times out
     const pdfBlob = new Blob([await file.arrayBuffer()], {
       type: file.type || 'application/pdf',
     })
 
     try {
       const text = await extractTextFromPdf(file)
-      setRawText(text)
       applyParsedText(text, `Import PDF : ${file.name}`, {
         pdfFileName: file.name,
         pdfBlob,
@@ -91,16 +92,11 @@ export function ImportLabModal({ initialMode = 'import', onClose }: ImportLabMod
       }))
       setParseMessage({
         type: 'warning',
-        text: `PDF « ${file.name} » attaché, mais lecture automatique impossible sur ce fichier. Saisissez les valeurs puis cliquez sur « Enregistrer ».`,
+        text: `PDF « ${file.name} » attaché. Complétez les valeurs ci-dessous puis cliquez sur « Enregistrer le bilan ».`,
       })
     } finally {
       setParsing(false)
     }
-  }
-
-  function handleParseRawText() {
-    if (!rawText.trim()) return
-    applyParsedText(rawText, 'Import texte')
   }
 
   function updateField(key: LabMarkerKey, rawValue: string) {
@@ -142,7 +138,7 @@ export function ImportLabModal({ initialMode = 'import', onClose }: ImportLabMod
                 Ajouter un bilan biologique
               </h2>
               <p className="text-xs text-slate-500 dark:text-slate-400">
-                Le PDF et les valeurs sont conservés hors-ligne
+                Extraction automatique dès la sélection du PDF
               </p>
             </div>
           </div>
@@ -155,19 +151,30 @@ export function ImportLabModal({ initialMode = 'import', onClose }: ImportLabMod
           </button>
         </div>
 
-        <div className="p-5 space-y-5 overflow-y-auto flex-1">
-          {/* Mode switcher */}
-          <div className="grid grid-cols-2 gap-1.5 p-1 rounded-2xl bg-slate-100 dark:bg-slate-800">
+        <div className="p-5 space-y-4 overflow-y-auto flex-1">
+          {/* 3-way mode switcher */}
+          <div className="grid grid-cols-3 gap-1 p-1 rounded-2xl bg-slate-100 dark:bg-slate-800">
             <button
               type="button"
-              onClick={() => setMode('import')}
+              onClick={() => setMode('pdf')}
               className={`py-2 rounded-xl text-xs font-semibold transition-all ${
-                mode === 'import'
+                mode === 'pdf'
                   ? 'bg-white dark:bg-slate-900 text-teal-700 dark:text-teal-300 shadow-xs'
                   : 'text-slate-600 dark:text-slate-400'
               }`}
             >
-              Import intelligent (PDF / Texte)
+              Importer PDF
+            </button>
+            <button
+              type="button"
+              onClick={() => setMode('text')}
+              className={`py-2 rounded-xl text-xs font-semibold transition-all ${
+                mode === 'text'
+                  ? 'bg-white dark:bg-slate-900 text-teal-700 dark:text-teal-300 shadow-xs'
+                  : 'text-slate-600 dark:text-slate-400'
+              }`}
+            >
+              Coller texte
             </button>
             <button
               type="button"
@@ -178,17 +185,17 @@ export function ImportLabModal({ initialMode = 'import', onClose }: ImportLabMod
                   : 'text-slate-600 dark:text-slate-400'
               }`}
             >
-              Saisie manuelle directe
+              Saisie manuelle
             </button>
           </div>
 
-          {mode === 'import' && (
+          {mode === 'pdf' && (
             <div className="space-y-3">
               <button
                 type="button"
                 onClick={() => fileRef.current?.click()}
                 disabled={parsing}
-                className="w-full flex flex-col items-center justify-center gap-2 p-5 rounded-2xl border-2 border-dashed border-teal-300 dark:border-teal-700/60 bg-teal-50/50 dark:bg-teal-950/20 hover:bg-teal-50 dark:hover:bg-teal-950/40 transition-colors cursor-pointer"
+                className="w-full flex flex-col items-center justify-center gap-2 p-4 rounded-2xl border-2 border-dashed border-teal-300 dark:border-teal-700/60 bg-teal-50/50 dark:bg-teal-950/20 hover:bg-teal-50 dark:hover:bg-teal-950/40 transition-colors cursor-pointer"
               >
                 {parsing ? (
                   <Loader2 className="w-7 h-7 text-teal-600 animate-spin" />
@@ -198,13 +205,13 @@ export function ImportLabModal({ initialMode = 'import', onClose }: ImportLabMod
                 <div className="text-center">
                   <p className="text-sm font-bold text-slate-800 dark:text-slate-100">
                     {parsing
-                      ? 'Analyse du PDF en cours...'
+                      ? 'Extraction automatique en cours...'
                       : draft.pdfFileName
-                        ? `PDF sélectionné : ${draft.pdfFileName}`
-                        : 'Sélectionner un PDF de laboratoire'}
+                        ? `PDF chargé : ${draft.pdfFileName}`
+                        : 'Toucher ici pour choisir votre PDF'}
                   </p>
                   <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
-                    Stocké localement sur votre appareil, aucune donnée envoyée en ligne
+                    Les chiffres sont extraits tout de suite ci-dessous
                   </p>
                 </div>
               </button>
@@ -215,46 +222,43 @@ export function ImportLabModal({ initialMode = 'import', onClose }: ImportLabMod
                 onChange={handlePdfUpload}
                 className="hidden"
               />
+            </div>
+          )}
 
-              <div className="space-y-1.5">
-                <label className="flex items-center gap-1.5 text-xs font-semibold text-slate-600 dark:text-slate-300">
-                  <ClipboardPaste className="w-3.5 h-3.5 text-teal-600" />
-                  Ou collez le texte brut de vos résultats :
-                </label>
-                <div className="flex gap-2">
-                  <textarea
-                    rows={2}
-                    value={rawText}
-                    onChange={(e) => setRawText(e.target.value)}
-                    placeholder="Ex: Date de l'examen : 05-10-2026 CRP 4.5 mg/L ALAT 54 U/L..."
-                    className="flex-1 px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs text-slate-900 dark:text-white"
-                  />
-                  <button
-                    type="button"
-                    onClick={handleParseRawText}
-                    className="px-3.5 py-2 rounded-xl bg-teal-600 hover:bg-teal-700 text-white text-xs font-semibold shrink-0"
-                  >
-                    Extraire
-                  </button>
-                </div>
-              </div>
+          {mode === 'text' && (
+            <div className="space-y-2">
+              <label className="flex items-center gap-1.5 text-xs font-semibold text-slate-600 dark:text-slate-300">
+                <ClipboardPaste className="w-3.5 h-3.5 text-teal-600" />
+                Collez le texte de vos résultats (extrait automatiquement) :
+              </label>
+              <textarea
+                rows={3}
+                value={rawText}
+                onChange={(e) => {
+                  const val = e.target.value
+                  setRawText(val)
+                  if (val.trim()) applyParsedText(val, 'Import texte')
+                }}
+                placeholder="Collez ici le texte copié depuis votre PDF ou laboratoire..."
+                className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs text-slate-900 dark:text-white"
+              />
+            </div>
+          )}
 
-              {parseMessage && (
-                <div
-                  className={`flex items-start gap-2 p-3 rounded-2xl border text-xs ${
-                    parseMessage.type === 'success'
-                      ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-800/50 text-emerald-800 dark:text-emerald-200'
-                      : 'bg-amber-50 dark:bg-amber-950/40 border-amber-200 dark:border-amber-800/50 text-amber-800 dark:text-amber-200'
-                  }`}
-                >
-                  {parseMessage.type === 'success' ? (
-                    <CheckCircle2 className="w-4 h-4 shrink-0 mt-0.5 text-emerald-600" />
-                  ) : (
-                    <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-amber-600" />
-                  )}
-                  <span>{parseMessage.text}</span>
-                </div>
+          {parseMessage && (
+            <div
+              className={`flex items-start gap-2 p-3 rounded-2xl border text-xs ${
+                parseMessage.type === 'success'
+                  ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-800/50 text-emerald-800 dark:text-emerald-200'
+                  : 'bg-amber-50 dark:bg-amber-950/40 border-amber-200 dark:border-amber-800/50 text-amber-800 dark:text-amber-200'
+              }`}
+            >
+              {parseMessage.type === 'success' ? (
+                <CheckCircle2 className="w-4 h-4 shrink-0 mt-0.5 text-emerald-600" />
+              ) : (
+                <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-amber-600" />
               )}
+              <span>{parseMessage.text}</span>
             </div>
           )}
 
@@ -274,29 +278,36 @@ export function ImportLabModal({ initialMode = 'import', onClose }: ImportLabMod
             </div>
 
             <div className="grid grid-cols-2 gap-2.5">
-              {LAB_MARKERS.map((marker) => (
-                <div
-                  key={marker.key}
-                  className="p-2.5 rounded-2xl bg-white dark:bg-slate-800/70 border border-slate-200/80 dark:border-slate-700/70"
-                >
-                  <div className="flex items-center justify-between gap-1 mb-1">
-                    <label className="text-xs font-bold text-slate-800 dark:text-slate-100 truncate">
-                      {marker.shortLabel}
-                    </label>
-                    <span className="text-[10px] text-slate-400 shrink-0">
-                      {marker.unit} ({marker.refText})
-                    </span>
+              {LAB_MARKERS.map((marker) => {
+                const hasVal = draft[marker.key] !== undefined
+                return (
+                  <div
+                    key={marker.key}
+                    className={`p-2.5 rounded-2xl border transition-colors ${
+                      hasVal
+                        ? 'bg-emerald-50/50 dark:bg-emerald-950/20 border-emerald-300 dark:border-emerald-700/60'
+                        : 'bg-white dark:bg-slate-800/70 border-slate-200/80 dark:border-slate-700/70'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between gap-1 mb-1">
+                      <label className="text-xs font-bold text-slate-800 dark:text-slate-100 truncate">
+                        {marker.shortLabel}
+                      </label>
+                      <span className="text-[10px] text-slate-400 shrink-0">
+                        {marker.unit} ({marker.refText})
+                      </span>
+                    </div>
+                    <input
+                      type="number"
+                      step="any"
+                      value={draft[marker.key] ?? ''}
+                      onChange={(e) => updateField(marker.key, e.target.value)}
+                      placeholder="—"
+                      className="w-full px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm font-semibold text-slate-900 dark:text-white"
+                    />
                   </div>
-                  <input
-                    type="number"
-                    step="any"
-                    value={draft[marker.key] ?? ''}
-                    onChange={(e) => updateField(marker.key, e.target.value)}
-                    placeholder="—"
-                    className="w-full px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-sm font-semibold text-slate-900 dark:text-white"
-                  />
-                </div>
-              ))}
+                )
+              })}
             </div>
 
             <div>

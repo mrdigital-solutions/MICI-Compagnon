@@ -59,8 +59,8 @@ export const LAB_MARKERS: LabMarkerMeta[] = [
     shortLabel: 'ASAT',
     unit: 'U/L',
     refText: '< 50',
-    maxRef: 50,
     color: '#ea580c',
+    maxRef: 50,
   },
   {
     key: 'ggt',
@@ -160,7 +160,6 @@ function normalizeLabText(raw: string): string {
 }
 
 function extractDateFromLabText(normalized: string): string | undefined {
-  // Prioritize explicit exam/sample date patterns
   const patterns = [
     /Date de l['’]examen\s*:\s*(\d{2})[-/](\d{2})[-/](\d{4})/i,
     /Pr[ée]lev[ée]\s+le\s+(\d{2})[-/](\d{2})[-/](\d{4})/i,
@@ -178,11 +177,18 @@ function extractDateFromLabText(normalized: string): string | undefined {
   return undefined
 }
 
-function extractMarkerValue(normalized: string, markerRegex: RegExp): number | undefined {
-  const match = normalized.match(markerRegex)
-  if (!match?.[1]) return undefined
-  const val = parseFloat(match[1])
-  return Number.isFinite(val) ? val : undefined
+/**
+ * Searches all occurrences of a marker pattern in the cleaned text
+ * and returns the first valid numeric value found.
+ */
+function extractFromAllMatches(text: string, globalRegex: RegExp): number | undefined {
+  for (const match of text.matchAll(globalRegex)) {
+    if (match[1]) {
+      const val = parseFloat(match[1])
+      if (Number.isFinite(val)) return val
+    }
+  }
+  return undefined
 }
 
 export type ParsedLabDraft = Omit<LabResult, 'id' | 'createdAt'>
@@ -190,46 +196,59 @@ export type ParsedLabDraft = Omit<LabResult, 'id' | 'createdAt'>
 export function parseLabText(rawText: string): ParsedLabDraft {
   const norm = normalizeLabText(rawText)
   const date = extractDateFromLabText(norm) ?? new Date().toISOString().slice(0, 10)
-  // Strip dd-mm-yyyy / dd/mm/yyyy dates so anteriority dates between marker name and value never break matching
-  const textNoDates = norm.replace(/\b\d{2}[-/]\d{2}[-/]\d{4}\b/g, ' ')
 
-  // Patterns allow optional [AC], '<' prefix, out-of-range flags (*, H, ↑), spaces around '/', and method descriptions
-  const crp = extractMarkerValue(
-    textNoDates,
-    /(?:CRP|Prot[ée]ine\s+C\s+R[ée]active)[^0-9]{0,100}?(?:<\s*)?(\d+(?:\.\d+)?)\s*(?:[*H↑!]\s*)?mg\s*\/\s*L/i,
+  // Clean out [AC], dates (dd-mm-yyyy / dd/mm/yy), and parenthetical method/reference blocks
+  // so that "<Marker> [AC] (Method ...) 315.7 µg/g (< 50)" becomes "<Marker> 315.7 µg/g"
+  const cleaned = norm
+    .replace(/\[AC\]/gi, ' ')
+    .replace(/\b\d{2}[-/]\d{2}[-/]\d{2,4}\b/g, ' ')
+    .replace(/\b\d{2}:\d{2}\b/g, ' ')
+    .replace(/\([^)]{1,120}\)/g, ' ')
+    .replace(/\s+/g, ' ')
+
+  const crp = extractFromAllMatches(
+    cleaned,
+    /(?:CRP|Prot[ée]ine\s+C\s+R[ée]active)[^0-9<>]{0,80}?(?:[<>]\s*)?(\d+(?:\.\d+)?)\s*(?:[*H↑!]\s*)?mg\s*\/\s*L/gi,
   )
+
   const calprotectin =
-    extractMarkerValue(
-      textNoDates,
-      /Calprotectine(?:\s+f[ée]cale|\s+dans\s+les\s+selles)?[\s\S]{0,220}?(?<!\()\b(\d+(?:\.\d+)?)\s*(?:[*H↑!]\s*)?(?:µg|ug|mcg|mg)\s*\/\s*(?:g|kg)/i,
+    extractFromAllMatches(
+      cleaned,
+      /Calprotectine(?:\s+f[ée]cale|\s+dans\s+les\s+selles)?[^0-9<>]{0,120}?(?:[<>]\s*)?(\d+(?:\.\d+)?)\s*(?:[*H↑!]\s*)?(?:µg|ug|mcg|mg)\s*\/\s*(?:g|kg)/gi,
     ) ??
-    extractMarkerValue(
-      textNoDates,
-      /Calprotectine(?:\s+f[ée]cale|\s+dans\s+les\s+selles)?[^0-9]{0,140}?(?:<\s*)?(\d+(?:\.\d+)?)/i,
+    extractFromAllMatches(
+      cleaned,
+      /Calprotectine(?:\s+f[ée]cale|\s+dans\s+les\s+selles)?[^0-9<>]{0,100}?(?:[<>]\s*)?(\d+(?:\.\d+)?)/gi,
     )
-  const alat = extractMarkerValue(
-    textNoDates,
-    /ALAT(?:\s*\([^)]*\))?[^0-9]{0,100}?(\d+(?:\.\d+)?)\s*(?:[*H↑!]\s*)?(?:UI|U)\s*\/\s*L/i,
+
+  const alat = extractFromAllMatches(
+    cleaned,
+    /\b(?:ALAT|Transaminases\s+TGP)\b[^0-9<>]{0,80}?(?:[<>]\s*)?(\d+(?:\.\d+)?)\s*(?:[*H↑!]\s*)?(?:UI|U)\s*\/\s*L/gi,
   )
-  const asat = extractMarkerValue(
-    textNoDates,
-    /ASAT(?:\s*\([^)]*\))?[^0-9]{0,100}?(\d+(?:\.\d+)?)\s*(?:[*H↑!]\s*)?(?:UI|U)\s*\/\s*L/i,
+
+  const asat = extractFromAllMatches(
+    cleaned,
+    /\b(?:ASAT|Transaminases\s+TGO)\b[^0-9<>]{0,80}?(?:[<>]\s*)?(\d+(?:\.\d+)?)\s*(?:[*H↑!]\s*)?(?:UI|U)\s*\/\s*L/gi,
   )
-  const ggt = extractMarkerValue(
-    textNoDates,
-    /GGT(?:\s*\([^)]*\))?[^0-9]{0,100}?(\d+(?:\.\d+)?)\s*(?:[*H↑!]\s*)?(?:UI|U)\s*\/\s*L/i,
+
+  const ggt = extractFromAllMatches(
+    cleaned,
+    /\b(?:GGT|Gamma\s+Glutamyl\s+Transpeptidase)\b[^0-9<>]{0,80}?(?:[<>]\s*)?(\d+(?:\.\d+)?)\s*(?:[*H↑!]\s*)?(?:UI|U)\s*\/\s*L/gi,
   )
-  const leukocytes = extractMarkerValue(
-    textNoDates,
-    /Leucocytes[^0-9]{0,80}?(\d+(?:\.\d+)?)\s*(?:[*H↑!]\s*)?(?:G\s*\/\s*L|10\^9\/L)/i,
+
+  const leukocytes = extractFromAllMatches(
+    cleaned,
+    /Leucocytes[^0-9<>]{0,60}?(\d+(?:\.\d+)?)\s*(?:[*H↑!]\s*)?(?:G\s*\/\s*L|10\^9\/L)/gi,
   )
-  const erythrocytes = extractMarkerValue(
-    textNoDates,
-    /H[ée]maties[^0-9]{0,80}?(\d+(?:\.\d+)?)\s*(?:[*H↑!]\s*)?(?:T\s*\/\s*L|10\^12\/L)/i,
+
+  const erythrocytes = extractFromAllMatches(
+    cleaned,
+    /H[ée]maties[^0-9<>]{0,60}?(\d+(?:\.\d+)?)\s*(?:[*H↑!]\s*)?(?:T\s*\/\s*L|10\^12\/L)/gi,
   )
-  const vgm = extractMarkerValue(
-    textNoDates,
-    /V\.?G\.?M\.?[^0-9]{0,80}?(\d+(?:\.\d+)?)\s*(?:[*H↑!]\s*)?fL/i,
+
+  const vgm = extractFromAllMatches(
+    cleaned,
+    /V\.?G\.?M\.?[^0-9<>]{0,60}?(\d+(?:\.\d+)?)\s*(?:[*H↑!]\s*)?fL/gi,
   )
 
   return {

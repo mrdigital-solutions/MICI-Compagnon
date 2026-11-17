@@ -34,8 +34,13 @@ export function SettingsModal({ settings, onClose }: SettingsModalProps) {
   )
   const [showReschedule, setShowReschedule] = useState(false)
   const [confirmReset, setConfirmReset] = useState(false)
+  const [canInstall, setCanInstall] = useState(() => canPromptPwaInstall())
   const [feedback, setFeedback] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    return subscribePwaInstall(() => setCanInstall(canPromptPwaInstall()))
+  }, [])
 
   async function handleSaveSettings() {
     if (cycleDays !== settings.cycleDays) {
@@ -295,6 +300,28 @@ export function SettingsModal({ settings, onClose }: SettingsModalProps) {
                 <p className="text-center text-xs font-semibold text-teal-600 dark:text-teal-400">
                   {feedback}
                 </p>
+              )}
+
+              {/* Install PWA button (when not already running standalone) */}
+              {!isStandalonePwa() && (
+                <div className="pt-3 border-t border-slate-100 dark:border-slate-800 space-y-1.5">
+                  {canInstall ? (
+                    <button
+                      type="button"
+                      onClick={() => promptPwaInstall()}
+                      className="w-full flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl text-xs font-semibold text-white bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-700 hover:to-emerald-700 shadow-xs transition-colors"
+                    >
+                      <Smartphone className="w-4 h-4" />
+                      Installer l'application sur l'écran d'accueil
+                    </button>
+                  ) : (
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400 text-center leading-relaxed">
+                      Pour installer l'appli : sur Android, menu <strong>⋮</strong> (descendre en
+                      bas) → <strong>Ajouter à l'écran d'accueil</strong> ; sur iPhone,{' '}
+                      <strong>Partager → Sur l'écran d'accueil</strong>.
+                    </p>
+                  )}
+                </div>
               )}
 
               {/* Force PWA cache refresh (preserves IndexedDB data) */}

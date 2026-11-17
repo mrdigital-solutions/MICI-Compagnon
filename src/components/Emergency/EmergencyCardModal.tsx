@@ -250,6 +250,7 @@ export function EmergencyCardModal({ settings, onClose }: EmergencyCardModalProp
                   <div className="text-right">
                     <strong className="block text-slate-900 dark:text-white">
                       {settings.treatmentName}
+                      {settings.secondaryTreatmentName && ` + ${settings.secondaryTreatmentName}`}
                     </strong>
                     <span className="text-[11px] font-semibold text-amber-700 dark:text-amber-300">
                       Biothérapie / Immunosuppresseur

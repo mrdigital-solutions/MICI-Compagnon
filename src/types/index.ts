@@ -119,6 +119,9 @@ export interface AppSettings {
   emergencyNotes?: string
   priorityCardBlob?: Blob
   priorityCardName?: string
+  secondaryTreatmentName?: string
+  secondaryCycleDays?: number
+  secondaryNextDate?: string
 }
 
 export type AppTab = 'calendar' | 'journal' | 'labs' | 'report'

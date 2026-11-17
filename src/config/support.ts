@@ -9,9 +9,16 @@ export interface TreatmentPreset {
   cycleDays: number
 }
 
-export const APP_VERSION = '1.2'
+export const APP_VERSION = '1.3'
 
 export const CHANGELOG = [
+  {
+    version: '1.3 — 18 nov.',
+    items: [
+      'Combothérapie : possibilité d’ajouter un 2e traitement (ex : Humira + Méthotrexate, Infliximab + Imurel) dans Paramètres et sur le Calendrier.',
+      'Ajout de Méthotrexate 15 mg et Imurel / Azathioprine dans les pré-réglages.',
+    ],
+  },
   {
     version: '1.2 — 17 nov.',
     items: [
@@ -38,5 +45,7 @@ export const TREATMENT_PRESETS: TreatmentPreset[] = [
   { name: 'Skyrizi 360 mg', cycleDays: 56 },
   { name: 'Entyvio 108 mg', cycleDays: 14 },
   { name: 'Remicade / Infliximab', cycleDays: 56 },
+  { name: 'Méthotrexate 15 mg', cycleDays: 7 },
+  { name: 'Imurel / Azathioprine', cycleDays: 1 },
   { name: 'Rinvoq (comprimé)', cycleDays: 1 },
 ]

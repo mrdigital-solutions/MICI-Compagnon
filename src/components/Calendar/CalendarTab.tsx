@@ -18,6 +18,7 @@ import { useMemo, useState } from 'react'
 import { db, getNextRecommendedSite, getSiteLabel } from '../../db/database'
 import { INJECTION_SITES, type AppSettings, type DailyEntry, type InjectionRecord } from '../../types'
 import {
+  addDays,
   diffDays,
   formatDateFr,
   formatMonthYearFr,
@@ -108,6 +109,25 @@ export function CalendarTab({ settings, onSelectDay }: CalendarTabProps) {
     }).length
   }, [dailyEntries, viewYear, viewMonth])
 
+  const secondaryDates = useMemo(() => {
+    const set = new Set<string>()
+    if (
+      !settings.secondaryTreatmentName ||
+      !settings.secondaryNextDate ||
+      !settings.secondaryCycleDays
+    ) {
+      return set
+    }
+    for (let i = 0; i < 16; i++) {
+      set.add(addDays(settings.secondaryNextDate, i * settings.secondaryCycleDays))
+    }
+    return set
+  }, [
+    settings.secondaryTreatmentName,
+    settings.secondaryNextDate,
+    settings.secondaryCycleDays,
+  ])
+
   const grid = useMemo(() => getMonthGrid(viewYear, viewMonth), [viewYear, viewMonth])
 
   function prevMonth() {
@@ -142,6 +162,12 @@ export function CalendarTab({ settings, onSelectDay }: CalendarTabProps) {
     const current = settings.penStock ?? 0
     const next = Math.max(0, current + delta)
     await db.settings.update('default', { penStock: next })
+  }
+
+  async function markSecondaryDone() {
+    if (!settings.secondaryNextDate || !settings.secondaryCycleDays) return
+    const nextDate = addDays(today, settings.secondaryCycleDays)
+    await db.settings.update('default', { secondaryNextDate: nextDate })
   }
 
   return (
@@ -315,6 +341,44 @@ export function CalendarTab({ settings, onSelectDay }: CalendarTabProps) {
             </section>
           )}
 
+          {/* Secondary Treatment (Combothérapie) */}
+          {settings.secondaryTreatmentName && settings.secondaryNextDate && (
+            <section className="rounded-3xl bg-white/85 dark:bg-slate-900/90 backdrop-blur-md p-4 shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-indigo-200/70 dark:border-indigo-800/40 flex items-center justify-between gap-3">
+              <div className="min-w-0">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400">
+                  2e traitement · Cycle {settings.secondaryCycleDays ?? 7} j
+                </span>
+                <p className="text-sm font-extrabold text-slate-900 dark:text-white truncate">
+                  {settings.secondaryTreatmentName}
+                </p>
+                <p className="text-xs text-slate-500 dark:text-slate-400 capitalize">
+                  {formatDateFr(settings.secondaryNextDate, {
+                    weekday: 'short',
+                    day: 'numeric',
+                    month: 'short',
+                  })}
+                  {(() => {
+                    const d = diffDays(today, settings.secondaryNextDate)
+                    return d === 0
+                      ? " · Aujourd'hui"
+                      : d === 1
+                        ? ' · Demain'
+                        : d > 0
+                          ? ` · Dans ${d} j`
+                          : ` · Retard ${Math.abs(d)} j`
+                  })()}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={markSecondaryDone}
+                className="shrink-0 px-3.5 py-2 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-xs transition-colors"
+              >
+                Prise faite
+              </button>
+            </section>
+          )}
+
           {/* Rotating Wellness & Lifestyle Tip */}
           <WellnessTipTicker />
 
@@ -481,6 +545,7 @@ export function CalendarTab({ settings, onSelectDay }: CalendarTabProps) {
               const hasDone = dayInjections.some((i) => i.status === 'done')
               const hasPlanned = dayInjections.some((i) => i.status === 'planned')
               const hasShifted = dayInjections.some((i) => i.status === 'shifted')
+              const hasSecondary = secondaryDates.has(cell.dateKey)
 
               return (
                 <button
@@ -512,6 +577,12 @@ export function CalendarTab({ settings, onSelectDay }: CalendarTabProps) {
                       <span
                         title="Injection prévue"
                         className="w-2.5 h-2.5 rounded-full bg-teal-500 ring-2 ring-teal-500/25"
+                      />
+                    )}
+                    {hasSecondary && (
+                      <span
+                        title={settings.secondaryTreatmentName}
+                        className="w-2.5 h-2.5 rounded-full bg-indigo-500"
                       />
                     )}
                     {hasShifted && (

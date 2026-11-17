@@ -1,20 +1,26 @@
 import { Moon, Settings, ShieldAlert, Smartphone, Sun, Wind, X } from 'lucide-react'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { useEffect, useState } from 'react'
+import { Suspense, lazy, useEffect, useState } from 'react'
 import { CalendarTab } from './components/Calendar/CalendarTab'
 import { SetupScheduleModal } from './components/Calendar/SetupScheduleModal'
 import { EmergencyCardModal } from './components/Emergency/EmergencyCardModal'
 import { DailyJournalSheet } from './components/Journal/DailyJournalSheet'
 import { JournalTab } from './components/Journal/JournalTab'
-import { LabsTab } from './components/Labs/LabsTab'
 import { TopNav } from './components/Layout/TopNav'
-import { ReportTab } from './components/Report/ReportTab'
 import { SettingsModal } from './components/Settings/SettingsModal'
 import { BreathingModal } from './components/Wellness/BreathingModal'
 import { SupportBetaBubble } from './components/Wellness/SupportBetaBubble'
 import { DEFAULT_SETTINGS, db, ensureDefaultSettings } from './db/database'
 import type { AppTab } from './types'
 import { triggerLocalReminderIfNeeded } from './utils/notifications'
+
+// Onglets chargés à la demande : ils embarquent la librairie de graphiques (recharts)
+const LabsTab = lazy(() =>
+  import('./components/Labs/LabsTab').then((m) => ({ default: m.LabsTab })),
+)
+const ReportTab = lazy(() =>
+  import('./components/Report/ReportTab').then((m) => ({ default: m.ReportTab })),
+)
 import {
   canPromptPwaInstall,
   isStandalonePwa,
@@ -57,9 +63,13 @@ export function App() {
   }, [currentSettings.theme])
 
   useEffect(() => {
-    if (settings && nextPlanned) {
-      triggerLocalReminderIfNeeded(nextPlanned, settings)
-    }
+    if (!settings || !nextPlanned) return
+    void triggerLocalReminderIfNeeded(nextPlanned, settings)
+    // Re-vérifie chaque minute pour déclencher le rappel à l'heure choisie si l'app reste ouverte
+    const timer = window.setInterval(() => {
+      void triggerLocalReminderIfNeeded(nextPlanned, settings)
+    }, 60_000)
+    return () => window.clearInterval(timer)
   }, [settings, nextPlanned])
 
   async function toggleTheme() {
@@ -212,8 +222,16 @@ export function App() {
           />
         )}
         {activeTab === 'journal' && <JournalTab />}
-        {activeTab === 'labs' && <LabsTab />}
-        {activeTab === 'report' && <ReportTab />}
+        <Suspense
+          fallback={
+            <p className="py-10 text-center text-sm text-slate-500 dark:text-slate-400">
+              Chargement...
+            </p>
+          }
+        >
+          {activeTab === 'labs' && <LabsTab />}
+          {activeTab === 'report' && <ReportTab />}
+        </Suspense>
       </main>
 
       <DailyJournalSheet

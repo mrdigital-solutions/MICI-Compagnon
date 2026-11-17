@@ -16,6 +16,7 @@ import type { LabResult } from '../../types'
 import { formatShortDateFr } from '../../utils/dateUtils'
 import {
   LAB_MARKERS,
+  getMarkerRange,
   isMarkerOutOfRange,
   type LabMarkerKey,
 } from '../../utils/labParser'
@@ -30,11 +31,13 @@ export function LabsTab() {
   const [selectedMarker, setSelectedMarker] = useState<LabMarkerKey>('crp')
 
   const labResults = useLiveQuery(() => db.labResults.orderBy('date').toArray(), [])
+  const patientSex = useLiveQuery(() => db.settings.get('default'), [])?.patientSex
 
   const activeMeta = useMemo(
     () => LAB_MARKERS.find((m) => m.key === selectedMarker) ?? LAB_MARKERS[0],
     [selectedMarker],
   )
+  const activeRange = getMarkerRange(activeMeta, patientSex)
 
   const chartData = useMemo(() => {
     const byDate = new Map<string, number>()
@@ -131,7 +134,7 @@ export function LabsTab() {
             const markerResult = latestByMarker[meta.key]
             const rawVal = markerResult?.[meta.key]
             const val = isValidLabNumber(rawVal) ? rawVal : undefined
-            const outOfRange = isMarkerOutOfRange(meta, val)
+            const outOfRange = isMarkerOutOfRange(meta, val, patientSex)
             return (
               <button
                 key={meta.key}
@@ -147,7 +150,9 @@ export function LabsTab() {
                   <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
                     {meta.shortLabel}
                   </span>
-                  <span className="text-[10px] text-slate-400">{meta.refText}</span>
+                  <span className="text-[10px] text-slate-400">
+                    {getMarkerRange(meta, patientSex).refText}
+                  </span>
                 </div>
                 <div className="mt-1.5 flex items-baseline gap-1">
                   <span
@@ -181,7 +186,7 @@ export function LabsTab() {
               Évolution : {activeMeta.label}
             </h3>
             <span className="text-[11px] px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400">
-              Réf : {activeMeta.refText} {activeMeta.unit}
+              Réf : {activeRange.refText} {activeMeta.unit}
             </span>
           </div>
         </div>
@@ -228,13 +233,13 @@ export function LabsTab() {
                   }}
                   formatter={(value) => [`${value} ${activeMeta.unit}`, activeMeta.shortLabel]}
                 />
-                {activeMeta.maxRef !== undefined && (
+                {activeRange.maxRef !== undefined && (
                   <ReferenceLine
-                    y={activeMeta.maxRef}
+                    y={activeRange.maxRef}
                     stroke="#f59e0b"
                     strokeDasharray="4 4"
                     label={{
-                      value: `Max ${activeMeta.maxRef}`,
+                      value: `Max ${activeRange.maxRef}`,
                       position: 'insideTopRight',
                       fill: '#d97706',
                       fontSize: 10,
@@ -294,7 +299,7 @@ export function LabsTab() {
                     {LAB_MARKERS.map((m) => {
                       const rawVal = row[m.key]
                       const val = isValidLabNumber(rawVal) ? rawVal : undefined
-                      const out = isMarkerOutOfRange(m, val)
+                      const out = isMarkerOutOfRange(m, val, patientSex)
                       return (
                         <td key={m.key} className="py-3 px-2 whitespace-nowrap">
                           {val !== undefined ? (

@@ -27,6 +27,7 @@ import {
   getTodayKey,
 } from '../../utils/dateUtils'
 import { downloadInjectionIcs } from '../../utils/icsCalendar'
+import { isOralTreatment } from '../../utils/treatment'
 import { WellnessTipTicker } from '../Wellness/WellnessTipTicker'
 import { ConfirmInjectionModal } from './ConfirmInjectionModal'
 import { ShiftInjectionModal } from './ShiftInjectionModal'
@@ -154,6 +155,8 @@ export function CalendarTab({ settings, onSelectDay }: CalendarTabProps) {
     setViewMonth(d.getMonth())
   }
 
+  const oral = isOralTreatment(settings.treatmentName)
+  const intake = oral ? 'Prise' : 'Injection'
   const daysUntilNext = nextPlanned ? diffDays(today, nextPlanned.scheduledDate) : null
   const recommendedSite =
     nextPlanned?.site ?? getNextRecommendedSite(settings.lastInjectionSite)
@@ -201,15 +204,17 @@ export function CalendarTab({ settings, onSelectDay }: CalendarTabProps) {
           <div className="text-[13px] leading-relaxed">
             <p className="font-bold">
               {daysUntilNext < 0
-                ? `Injection en retard de ${Math.abs(daysUntilNext)} jour${Math.abs(daysUntilNext) > 1 ? 's' : ''}`
+                ? `${intake} en retard de ${Math.abs(daysUntilNext)} jour${Math.abs(daysUntilNext) > 1 ? 's' : ''}`
                 : daysUntilNext === 0
-                  ? `Jour J : Injection ${settings.treatmentName} prévue aujourd'hui`
-                  : `Rappel J-1 : Injection ${settings.treatmentName} prévue demain`}
+                  ? `Jour J : ${intake} ${settings.treatmentName} prévue aujourd'hui`
+                  : `Rappel J-1 : ${intake} ${settings.treatmentName} prévue demain`}
             </p>
-            <p className="text-slate-600 dark:text-slate-300 mt-0.5">
-              Zone recommandée : <strong>{getSiteLabel(recommendedSite)}</strong>. Pensez à vérifier
-              l'absence de fièvre ou d'infection avant l'injection.
-            </p>
+            {!oral && (
+              <p className="text-slate-600 dark:text-slate-300 mt-0.5">
+                Zone recommandée : <strong>{getSiteLabel(recommendedSite)}</strong>. Pensez à vérifier
+                l'absence de fièvre ou d'infection avant l'injection.
+              </p>
+            )}
           </div>
         </div>
       )}
@@ -224,7 +229,7 @@ export function CalendarTab({ settings, onSelectDay }: CalendarTabProps) {
                 <div>
                   <span className="inline-flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-teal-600 dark:text-teal-400">
                     <Syringe className="w-3.5 h-3.5" />
-                    Prochaine injection · {settings.treatmentName}
+                    Prochaine {oral ? 'prise' : 'injection'} · {settings.treatmentName}
                   </span>
                   <h2 className="text-xl font-extrabold capitalize mt-1 text-slate-900 dark:text-white">
                     {formatDateFr(nextPlanned.scheduledDate)}
@@ -241,7 +246,8 @@ export function CalendarTab({ settings, onSelectDay }: CalendarTabProps) {
                 </span>
               </div>
 
-              {/* Rotation sites mini-strip */}
+              {/* Rotation sites mini-strip (injectables uniquement) */}
+              {!oral && (
               <div className="mt-4 p-3 rounded-2xl bg-slate-50/90 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-700/60 space-y-2.5">
                 <div className="flex items-center justify-between text-xs">
                   <span className="inline-flex items-center gap-1.5 font-medium text-slate-600 dark:text-slate-300">
@@ -270,6 +276,7 @@ export function CalendarTab({ settings, onSelectDay }: CalendarTabProps) {
                   })}
                 </div>
               </div>
+              )}
 
               <div className="mt-4 grid grid-cols-2 gap-2.5">
                 <button
@@ -292,14 +299,17 @@ export function CalendarTab({ settings, onSelectDay }: CalendarTabProps) {
 
               <button
                 type="button"
-                onClick={() => downloadInjectionIcs(nextPlanned, settings.treatmentName)}
+                onClick={() =>
+                  downloadInjectionIcs(nextPlanned, settings.treatmentName, settings.reminderHour)
+                }
                 className="mt-2.5 w-full flex items-center justify-center gap-2 py-2 px-3 rounded-xl bg-slate-100/80 hover:bg-slate-200/70 dark:bg-slate-800/70 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 text-xs font-semibold transition-colors"
               >
                 <BellPlus className="w-3.5 h-3.5 text-teal-600 dark:text-teal-400" />
                 Ajouter le rappel à mon Agenda (.ics)
               </button>
 
-              {/* Pen Stock tracker */}
+              {/* Pen Stock tracker (injectables uniquement) */}
+              {!oral && (
               <div className="mt-3 pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between gap-2 text-[13px]">
                 <div className="flex items-center gap-2">
                   <Package className="w-4 h-4 text-slate-400" />
@@ -338,6 +348,7 @@ export function CalendarTab({ settings, onSelectDay }: CalendarTabProps) {
                   </button>
                 </div>
               </div>
+              )}
             </section>
           )}
 
@@ -467,14 +478,18 @@ export function CalendarTab({ settings, onSelectDay }: CalendarTabProps) {
                         </p>
                         <p className="text-xs text-slate-500 dark:text-slate-400 truncate">
                           {inj.status === 'done'
-                            ? getSiteLabel(inj.site)
+                            ? inj.site
+                              ? getSiteLabel(inj.site)
+                              : 'Prise validée'
                             : inj.shiftReason || 'Report'}
                         </p>
                       </div>
                     </div>
-                    <span className="text-xs font-bold text-slate-500 dark:text-slate-400 shrink-0">
-                      {inj.doseMg} mg
-                    </span>
+                    {inj.doseMg > 0 && (
+                      <span className="text-xs font-bold text-slate-500 dark:text-slate-400 shrink-0">
+                        {inj.doseMg} mg
+                      </span>
+                    )}
                   </div>
                 ))}
               </div>
@@ -627,6 +642,7 @@ export function CalendarTab({ settings, onSelectDay }: CalendarTabProps) {
       {confirmTarget && (
         <ConfirmInjectionModal
           injection={confirmTarget}
+          treatmentName={settings.treatmentName}
           lastSite={settings.lastInjectionSite}
           onClose={() => setConfirmTarget(null)}
         />

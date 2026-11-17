@@ -7,11 +7,13 @@ import {
   Sparkles,
   X,
 } from 'lucide-react'
+import { useLiveQuery } from 'dexie-react-hooks'
 import { useRef, useState } from 'react'
 import { db } from '../../db/database'
+import { formatDateFr, getTodayKey } from '../../utils/dateUtils'
 import {
   LAB_MARKERS,
-  extractTextFromPdf,
+  getMarkerRange,
   parseLabText,
   type LabMarkerKey,
   type ParsedLabDraft,
@@ -33,10 +35,14 @@ export function ImportLabModal({ initialMode = 'import', onClose }: ImportLabMod
     text: string
   } | null>(null)
   const [saving, setSaving] = useState(false)
+  // Date pour laquelle l'utilisateur a confirmé la fusion avec un bilan existant
+  const [mergeConfirmedFor, setMergeConfirmedFor] = useState<string | null>(null)
+  const [mergeWarning, setMergeWarning] = useState<string | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
+  const patientSex = useLiveQuery(() => db.settings.get('default'), [])?.patientSex
 
   const [draft, setDraft] = useState<ParsedLabDraft>(() => ({
-    date: new Date().toISOString().slice(0, 10),
+    date: getTodayKey(),
     notes: '',
   }))
 
@@ -47,7 +53,7 @@ export function ImportLabModal({ initialMode = 'import', onClose }: ImportLabMod
       ...prev,
       ...parsed,
       ...extra,
-      notes: prev.notes || sourceLabel,
+      notes: [prev.notes || sourceLabel, parsed.notes].filter(Boolean).join(' · '),
     }))
     if (foundCount > 0) {
       setParseMessage({
@@ -78,6 +84,7 @@ export function ImportLabModal({ initialMode = 'import', onClose }: ImportLabMod
     })
 
     try {
+      const { extractTextFromPdf } = await import('../../utils/pdfText')
       const text = await extractTextFromPdf(file)
       applyParsedText(text, `Import PDF : ${file.name}`, {
         pdfFileName: file.name,
@@ -113,6 +120,13 @@ export function ImportLabModal({ initialMode = 'import', onClose }: ImportLabMod
     setSaving(true)
     try {
       const existing = await db.labResults.where('date').equals(draft.date).toArray()
+      if (existing.length > 0 && mergeConfirmedFor !== draft.date) {
+        setMergeConfirmedFor(draft.date)
+        setMergeWarning(
+          `Un bilan existe déjà le ${formatDateFr(draft.date, { day: 'numeric', month: 'long', year: 'numeric' })}. Les valeurs saisies vont le compléter (les valeurs remplies remplacent les anciennes). Cliquez à nouveau sur « Enregistrer » pour confirmer.`,
+        )
+        return
+      }
       if (existing.length > 0) {
         const base = existing[0]
         const definedUpdates: Partial<ParsedLabDraft> = {}
@@ -127,13 +141,6 @@ export function ImportLabModal({ initialMode = 'import', onClose }: ImportLabMod
 
         if (base.id !== undefined) {
           await db.labResults.update(base.id, definedUpdates)
-        }
-        const extraIds = existing
-          .slice(1)
-          .map((item) => item.id)
-          .filter((id): id is number => id !== undefined)
-        if (extraIds.length > 0) {
-          await db.labResults.bulkDelete(extraIds)
         }
       } else {
         await db.labResults.add({
@@ -296,7 +303,10 @@ export function ImportLabModal({ initialMode = 'import', onClose }: ImportLabMod
               <input
                 type="date"
                 value={draft.date}
-                onChange={(e) => setDraft((p) => ({ ...p, date: e.target.value }))}
+                onChange={(e) => {
+                  setDraft((p) => ({ ...p, date: e.target.value }))
+                  setMergeWarning(null)
+                }}
                 className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm font-semibold text-slate-900 dark:text-white"
                 required
               />
@@ -319,7 +329,7 @@ export function ImportLabModal({ initialMode = 'import', onClose }: ImportLabMod
                         {marker.shortLabel}
                       </label>
                       <span className="text-[10px] text-slate-400 shrink-0">
-                        {marker.unit} ({marker.refText})
+                        {marker.unit} ({getMarkerRange(marker, patientSex).refText})
                       </span>
                     </div>
                     <input
@@ -349,6 +359,12 @@ export function ImportLabModal({ initialMode = 'import', onClose }: ImportLabMod
             </div>
           </div>
         </div>
+
+        {mergeWarning && (
+          <p className="px-5 py-2.5 text-xs font-medium text-amber-900 dark:text-amber-100 bg-amber-50 dark:bg-amber-950/40 border-t border-amber-200 dark:border-amber-800/60 shrink-0">
+            {mergeWarning}
+          </p>
+        )}
 
         {/* Sticky footer always visible on mobile */}
         <div className="px-5 py-3.5 border-t border-amber-100 dark:border-slate-800 bg-[#FFFCF8] dark:bg-slate-900 flex gap-2.5 shrink-0">

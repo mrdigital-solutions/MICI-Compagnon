@@ -1,8 +1,5 @@
-import * as pdfjsLib from 'pdfjs-dist'
-import pdfWorkerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url'
-import type { LabResult } from '../types'
-
-pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorkerUrl
+import type { LabResult, PatientSex } from '../types'
+import { getTodayKey } from './dateUtils'
 
 export type LabMarkerKey =
   | 'crp'
@@ -14,17 +11,26 @@ export type LabMarkerKey =
   | 'erythrocytes'
   | 'vgm'
 
-export interface LabMarkerMeta {
+export interface LabRange {
+  refText: string
+  minRef?: number
+  maxRef?: number
+}
+
+export interface LabMarkerMeta extends LabRange {
   key: LabMarkerKey
   label: string
   shortLabel: string
   unit: string
-  refText: string
-  minRef?: number
-  maxRef?: number
   color: string
+  /** Valeurs de référence propres aux femmes, si elles diffèrent */
+  female?: LabRange
 }
 
+/**
+ * Valeurs de référence indicatives (adultes). Chaque laboratoire a ses propres
+ * normes : celles imprimées sur le compte rendu font foi.
+ */
 export const LAB_MARKERS: LabMarkerMeta[] = [
   {
     key: 'crp',
@@ -51,6 +57,7 @@ export const LAB_MARKERS: LabMarkerMeta[] = [
     unit: 'U/L',
     refText: '< 50',
     maxRef: 50,
+    female: { refText: '< 35', maxRef: 35 },
     color: '#d97706',
   },
   {
@@ -59,8 +66,9 @@ export const LAB_MARKERS: LabMarkerMeta[] = [
     shortLabel: 'ASAT',
     unit: 'U/L',
     refText: '< 50',
-    color: '#ea580c',
     maxRef: 50,
+    female: { refText: '< 35', maxRef: 35 },
+    color: '#ea580c',
   },
   {
     key: 'ggt',
@@ -69,6 +77,7 @@ export const LAB_MARKERS: LabMarkerMeta[] = [
     unit: 'U/L',
     refText: '< 60',
     maxRef: 60,
+    female: { refText: '< 40', maxRef: 40 },
     color: '#8b5cf6',
   },
   {
@@ -89,6 +98,7 @@ export const LAB_MARKERS: LabMarkerMeta[] = [
     refText: '4.39 – 5.68',
     minRef: 4.39,
     maxRef: 5.68,
+    female: { refText: '3.80 – 5.10', minRef: 3.8, maxRef: 5.1 },
     color: '#dc2626',
   },
   {
@@ -103,89 +113,97 @@ export const LAB_MARKERS: LabMarkerMeta[] = [
   },
 ]
 
-export function isMarkerOutOfRange(meta: LabMarkerMeta, value?: number): boolean {
+/** Plage de référence à utiliser selon le sexe renseigné dans les paramètres. */
+export function getMarkerRange(meta: LabMarkerMeta, sex?: PatientSex): LabRange {
+  if (sex === 'F' && meta.female) return meta.female
+  return { refText: meta.refText, minRef: meta.minRef, maxRef: meta.maxRef }
+}
+
+export function isMarkerOutOfRange(
+  meta: LabMarkerMeta,
+  value?: number,
+  sex?: PatientSex,
+): boolean {
   if (value === undefined || Number.isNaN(value)) return false
-  if (meta.maxRef !== undefined && value > meta.maxRef) return true
-  if (meta.minRef !== undefined && value < meta.minRef) return true
+  const range = getMarkerRange(meta, sex)
+  if (range.maxRef !== undefined && value > range.maxRef) return true
+  if (range.minRef !== undefined && value < range.minRef) return true
   return false
-}
-
-function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
-  return new Promise((resolve, reject) => {
-    const timer = window.setTimeout(() => reject(new Error(`Timeout: ${label}`)), ms)
-    promise.then(
-      (val) => {
-        window.clearTimeout(timer)
-        resolve(val)
-      },
-      (err) => {
-        window.clearTimeout(timer)
-        reject(err)
-      },
-    )
-  })
-}
-
-export async function extractTextFromPdf(file: File): Promise<string> {
-  const arrayBuffer = await file.arrayBuffer()
-  const loadingTask = pdfjsLib.getDocument({
-    data: new Uint8Array(arrayBuffer),
-    disableFontFace: true,
-    useSystemFonts: true,
-  })
-
-  const pdf = await withTimeout(loadingTask.promise, 10000, 'Chargement PDF')
-  const maxPages = Math.min(pdf.numPages, 8)
-  const pagesText: string[] = []
-
-  for (let pageNum = 1; pageNum <= maxPages; pageNum++) {
-    const page = await pdf.getPage(pageNum)
-    const content = await withTimeout(page.getTextContent(), 5000, `Page ${pageNum}`)
-    const strings = content.items
-      .map((item) => ('str' in item ? item.str : ''))
-      .filter(Boolean)
-    pagesText.push(strings.join(' '))
-  }
-
-  return pagesText.join('\n')
 }
 
 function normalizeLabText(raw: string): string {
   return raw
-    .replace(/[\u2212\u2013\u2014]/g, '-') // Unicode minus/dashes to ASCII hyphen
-    .replace(/\u03BC/g, 'µ') // Greek mu to micro sign
+    .replace(/[−–—]/g, '-') // Unicode minus/dashes to ASCII hyphen
+    .replace(/μ/g, 'µ') // Greek mu to micro sign
     .replace(/,/g, '.') // French decimal comma to dot
     .replace(/\s+/g, ' ')
     .trim()
 }
 
-function extractDateFromLabText(normalized: string): string | undefined {
-  const patterns = [
-    /Date de l['’]examen\s*:\s*(\d{2})[-/](\d{2})[-/](\d{4})/i,
-    /Pr[ée]lev[ée]\s+le\s+(\d{2})[-/](\d{2})[-/](\d{4})/i,
-    /Dossier\s+[A-Z0-9]+\s+du\s+(\d{2})[-/](\d{2})[-/](\d{4})/i,
-    /(\d{2})[-/](\d{2})[-/](20\d{2})/,
+const BIRTH_CONTEXT_RE = /(naissance|n[ée]e?\s+le|DDN|date\s+de\s+naiss)/i
+
+function toIsoDate(dd: string, mm: string, yyyy: string): string | undefined {
+  const d = Number(dd)
+  const m = Number(mm)
+  if (m < 1 || m > 12 || d < 1 || d > 31) return undefined
+  return `${yyyy}-${mm}-${dd}`
+}
+
+export function extractDateFromLabText(normalized: string): string | undefined {
+  const explicitPatterns = [
+    /Date de l['’]examen\s*:?\s*(\d{2})[-/.](\d{2})[-/.](\d{4})/i,
+    /Pr[ée]lev[ée]\s+le\s*:?\s*(\d{2})[-/.](\d{2})[-/.](\d{4})/i,
+    /Pr[ée]l[èe]vement\s+(?:du|le)?\s*:?\s*(\d{2})[-/.](\d{2})[-/.](\d{4})/i,
+    /Dossier\s+[A-Z0-9]+\s+du\s+(\d{2})[-/.](\d{2})[-/.](\d{4})/i,
   ]
 
-  for (const regex of patterns) {
+  for (const regex of explicitPatterns) {
     const match = normalized.match(regex)
     if (match) {
-      const [, dd, mm, yyyy] = match
-      return `${yyyy}-${mm}-${dd}`
+      const iso = toIsoDate(match[1], match[2], match[3])
+      if (iso) return iso
     }
   }
+
+  // Repli : première date plausible qui n'est ni une date de naissance ni dans le futur
+  const today = getTodayKey()
+  for (const match of normalized.matchAll(/(\d{2})[-/.](\d{2})[-/.](20\d{2})/g)) {
+    // Contexte juste avant la date, sans déborder sur une date précédente
+    const before =
+      normalized
+        .slice(Math.max(0, (match.index ?? 0) - 30), match.index)
+        .split(/\d{2}[-/.]\d{2}[-/.]\d{2,4}/)
+        .pop() ?? ''
+    if (BIRTH_CONTEXT_RE.test(before)) continue
+    const iso = toIsoDate(match[1], match[2], match[3])
+    if (iso && iso <= today) return iso
+  }
   return undefined
+}
+
+interface MarkerMatch {
+  value: number
+  qualifier?: '<' | '>'
+  unit?: string
 }
 
 /**
  * Searches all occurrences of a marker pattern in the cleaned text
  * and returns the first valid numeric value found.
+ * Group 1 = qualifier (< or >), group 2 = value, group 3 = unit (optional).
  */
-function extractFromAllMatches(text: string, globalRegex: RegExp): number | undefined {
+function extractFromAllMatches(text: string, globalRegex: RegExp): MarkerMatch | undefined {
   for (const match of text.matchAll(globalRegex)) {
-    if (match[1]) {
-      const val = parseFloat(match[1])
-      if (Number.isFinite(val)) return val
+    if (match[2]) {
+      const val = parseFloat(match[2])
+      if (Number.isFinite(val)) {
+        const q = match[1]?.trim()
+        return {
+          value: val,
+          qualifier: q === '<' || q === '>' ? q : undefined,
+          unit: match[3],
+        }
+      }
     }
   }
   return undefined
@@ -193,9 +211,19 @@ function extractFromAllMatches(text: string, globalRegex: RegExp): number | unde
 
 export type ParsedLabDraft = Omit<LabResult, 'id' | 'createdAt'>
 
+const FLAG = String.raw`(?:[*H↑!]\s*)?`
+const QUAL = String.raw`([<>]\s*)?`
+const NUM = String.raw`(\d+(?:\.\d+)?)`
+
+function round(n: number, decimals = 2): number {
+  const f = 10 ** decimals
+  return Math.round(n * f) / f
+}
+
 export function parseLabText(rawText: string): ParsedLabDraft {
   const norm = normalizeLabText(rawText)
-  const date = extractDateFromLabText(norm) ?? new Date().toISOString().slice(0, 10)
+  const date = extractDateFromLabText(norm) ?? getTodayKey()
+  const remarks: string[] = []
 
   // Clean out [AC], dates (dd-mm-yyyy / dd/mm/yy), and parenthetical method/reference blocks
   // so that "<Marker> [AC] (Method ...) 315.7 µg/g (< 50)" becomes "<Marker> 315.7 µg/g"
@@ -206,50 +234,94 @@ export function parseLabText(rawText: string): ParsedLabDraft {
     .replace(/\([^)]{1,120}\)/g, ' ')
     .replace(/\s+/g, ' ')
 
-  const crp = extractFromAllMatches(
-    cleaned,
-    /(?:CRP|Prot[ée]ine\s+C\s+R[ée]active)[^0-9<>]{0,80}?(?:[<>]\s*)?(\d+(?:\.\d+)?)\s*(?:[*H↑!]\s*)?mg\s*\/\s*L/gi,
+  function keep(label: string, m: MarkerMatch | undefined, unit: string): number | undefined {
+    if (!m) return undefined
+    if (m.qualifier) {
+      remarks.push(`${label} ${m.qualifier} ${m.value} ${unit} (sous le seuil de détection)`)
+    }
+    return m.value
+  }
+
+  const crp = keep(
+    'CRP',
+    extractFromAllMatches(
+      cleaned,
+      new RegExp(
+        String.raw`(?:CRP|Prot[ée]ine\s+C\s+R[ée]active)[^0-9<>]{0,80}?${QUAL}${NUM}\s*${FLAG}mg\s*\/\s*L`,
+        'gi',
+      ),
+    ),
+    'mg/L',
   )
 
-  const calprotectin =
-    extractFromAllMatches(
+  // Calprotectine : µg/g et mg/kg sont équivalents ; mg/g est converti (x1000)
+  const calproWithUnit = extractFromAllMatches(
+    cleaned,
+    new RegExp(
+      String.raw`Calprotectine(?:\s+f[ée]cale|\s+dans\s+les\s+selles)?[^0-9<>]{0,120}?${QUAL}${NUM}\s*${FLAG}((?:µg|ug|mcg|mg)\s*\/\s*(?:g|kg))`,
+      'gi',
+    ),
+  )
+  let calprotectin: number | undefined
+  if (calproWithUnit) {
+    const unit = (calproWithUnit.unit ?? '').replace(/\s+/g, '').toLowerCase()
+    if (unit === 'mg/g') calproWithUnit.value = round(calproWithUnit.value * 1000, 1)
+    calprotectin = keep('Calprotectine', calproWithUnit, 'µg/g')
+  } else {
+    const calproNoUnit = extractFromAllMatches(
       cleaned,
-      /Calprotectine(?:\s+f[ée]cale|\s+dans\s+les\s+selles)?[^0-9<>]{0,120}?(?:[<>]\s*)?(\d+(?:\.\d+)?)\s*(?:[*H↑!]\s*)?(?:µg|ug|mcg|mg)\s*\/\s*(?:g|kg)/gi,
-    ) ??
-    extractFromAllMatches(
-      cleaned,
-      /Calprotectine(?:\s+f[ée]cale|\s+dans\s+les\s+selles)?[^0-9<>]{0,100}?(?:[<>]\s*)?(\d+(?:\.\d+)?)/gi,
+      new RegExp(
+        String.raw`Calprotectine(?:\s+f[ée]cale|\s+dans\s+les\s+selles)?[^0-9<>]{0,100}?${QUAL}${NUM}`,
+        'gi',
+      ),
+    )
+    calprotectin = keep('Calprotectine', calproNoUnit, 'µg/g')
+    if (calproNoUnit) {
+      remarks.push('Calprotectine lue sans unité : vérifiez la valeur sur le compte rendu')
+    }
+  }
+
+  const enzyme = (names: string) =>
+    new RegExp(
+      String.raw`\b(?:${names})\b[^0-9<>]{0,80}?${QUAL}${NUM}\s*${FLAG}(?:UI|U)\s*\/\s*L`,
+      'gi',
     )
 
-  const alat = extractFromAllMatches(
-    cleaned,
-    /\b(?:ALAT|Transaminases\s+TGP)\b[^0-9<>]{0,80}?(?:[<>]\s*)?(\d+(?:\.\d+)?)\s*(?:[*H↑!]\s*)?(?:UI|U)\s*\/\s*L/gi,
+  const alat = keep('ALAT', extractFromAllMatches(cleaned, enzyme(String.raw`ALAT|Transaminases\s+TGP`)), 'U/L')
+  const asat = keep('ASAT', extractFromAllMatches(cleaned, enzyme(String.raw`ASAT|Transaminases\s+TGO`)), 'U/L')
+  const ggt = keep(
+    'GGT',
+    extractFromAllMatches(cleaned, enzyme(String.raw`GGT|Gamma[\s-]+Glutamyl[\s-]*Transpeptidase|Gamma[\s-]+GT`)),
+    'U/L',
   )
 
-  const asat = extractFromAllMatches(
+  // Leucocytes : G/L, 10^9/L ou /mm3 (converti en G/L)
+  const leukoMatch = extractFromAllMatches(
     cleaned,
-    /\b(?:ASAT|Transaminases\s+TGO)\b[^0-9<>]{0,80}?(?:[<>]\s*)?(\d+(?:\.\d+)?)\s*(?:[*H↑!]\s*)?(?:UI|U)\s*\/\s*L/gi,
+    new RegExp(
+      String.raw`Leucocytes[^0-9<>]{0,60}?()(\d+(?:\.\d+)?)\s*${FLAG}(G\s*\/\s*L|Giga\s*\/\s*L|10\s*[\^*]\s*9\s*\/\s*L|\/\s*mm\s*3|\/\s*mm³|\/\s*µL)`,
+      'gi',
+    ),
   )
-
-  const ggt = extractFromAllMatches(
-    cleaned,
-    /\b(?:GGT|Gamma\s+Glutamyl\s+Transpeptidase)\b[^0-9<>]{0,80}?(?:[<>]\s*)?(\d+(?:\.\d+)?)\s*(?:[*H↑!]\s*)?(?:UI|U)\s*\/\s*L/gi,
-  )
-
-  const leukocytes = extractFromAllMatches(
-    cleaned,
-    /Leucocytes[^0-9<>]{0,60}?(\d+(?:\.\d+)?)\s*(?:[*H↑!]\s*)?(?:G\s*\/\s*L|10\^9\/L)/gi,
-  )
+  let leukocytes: number | undefined
+  if (leukoMatch) {
+    const unit = (leukoMatch.unit ?? '').replace(/\s+/g, '').toLowerCase()
+    const perMm3 = unit.startsWith('/')
+    leukocytes = perMm3 ? round(leukoMatch.value / 1000) : leukoMatch.value
+  }
 
   const erythrocytes = extractFromAllMatches(
     cleaned,
-    /H[ée]maties[^0-9<>]{0,60}?(\d+(?:\.\d+)?)\s*(?:[*H↑!]\s*)?(?:T\s*\/\s*L|10\^12\/L)/gi,
-  )
+    new RegExp(
+      String.raw`H[ée]maties[^0-9<>]{0,60}?()(\d+(?:\.\d+)?)\s*${FLAG}(T\s*\/\s*L|Tera\s*\/\s*L|10\s*[\^*]\s*12\s*\/\s*L)`,
+      'gi',
+    ),
+  )?.value
 
   const vgm = extractFromAllMatches(
     cleaned,
-    /V\.?G\.?M\.?[^0-9<>]{0,60}?(\d+(?:\.\d+)?)\s*(?:[*H↑!]\s*)?fL/gi,
-  )
+    new RegExp(String.raw`V\.?G\.?M\.?[^0-9<>]{0,60}?()(\d+(?:\.\d+)?)\s*${FLAG}(fL|µ3|µm3)`, 'gi'),
+  )?.value
 
   return {
     date,
@@ -261,5 +333,6 @@ export function parseLabText(rawText: string): ParsedLabDraft {
     leukocytes,
     erythrocytes,
     vgm,
+    notes: remarks.length > 0 ? remarks.join(' · ') : undefined,
   }
 }

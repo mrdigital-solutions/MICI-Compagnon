@@ -1,8 +1,8 @@
-import { jsPDF } from 'jspdf'
 import { getSiteLabel } from '../db/database'
 import type { AppSettings, DailyEntry, InjectionRecord, LabResult } from '../types'
 import { diffDays, formatDateFr, formatShortDateFr } from './dateUtils'
-import { LAB_MARKERS, isMarkerOutOfRange, type LabMarkerMeta } from './labParser'
+import { LAB_MARKERS, getMarkerRange, isMarkerOutOfRange, type LabMarkerMeta } from './labParser'
+import { isOralTreatment } from './treatment'
 
 export interface PeakDayInfo {
   date: string
@@ -18,6 +18,7 @@ export interface LabComparisonItem {
   previousValue?: number
   previousDate?: string
   outOfRange: boolean
+  refText: string
 }
 
 export interface EndOfDoseBucket {
@@ -30,6 +31,8 @@ export interface MedicalReportSummary {
   startDate: string
   endDate: string
   treatmentName: string
+  isOral: boolean
+  cycleDays: number
   doneInjections: InjectionRecord[]
   shiftedInjections: InjectionRecord[]
   totalLoggedDays: number
@@ -57,6 +60,30 @@ export interface MedicalReportSummary {
 
 function round1(n: number): number {
   return Math.round(n * 10) / 10
+}
+
+function dayLabel(n: number): string {
+  return n === 0 ? 'Jour J' : `J-${n}`
+}
+
+/**
+ * Découpe le cycle en 4 tranches de « jours restants avant la prochaine prise ».
+ * Ex. cycle 14 j : J-13 et avant / J-10 à J-7 / J-6 à J-4 / J-3 à Jour J.
+ * Pour un cycle de moins de 4 jours (traitement quotidien), la courbe n'a pas de sens.
+ */
+export function buildEndOfDoseBuckets(
+  cycleDays: number,
+): { label: string; min: number; max: number }[] {
+  if (!Number.isFinite(cycleDays) || cycleDays < 4) return []
+  const e1 = Math.round(cycleDays * 0.25)
+  const e2 = Math.round(cycleDays * 0.5)
+  const e3 = Math.round(cycleDays * 0.75)
+  return [
+    { label: `${dayLabel(e3)} et avant`, min: e3, max: Number.POSITIVE_INFINITY },
+    { label: `${dayLabel(e3 - 1)} à ${dayLabel(e2)}`, min: e2, max: e3 - 1 },
+    { label: `${dayLabel(e2 - 1)} à ${dayLabel(e1)}`, min: e1, max: e2 - 1 },
+    { label: `${dayLabel(e1 - 1)} à Jour J`, min: 0, max: e1 - 1 },
+  ]
 }
 
 export function buildMedicalReport(params: {
@@ -138,16 +165,16 @@ export function buildMedicalReport(params: {
     .map((i) => i.actualDate ?? i.scheduledDate)
     .sort()
 
-  const buckets: { label: string; min: number; max: number; scores: number[] }[] = [
-    { label: 'J-14 à J-10', min: 10, max: 60, scores: [] },
-    { label: 'J-9 à J-6', min: 6, max: 9, scores: [] },
-    { label: 'J-5 à J-3', min: 3, max: 5, scores: [] },
-    { label: 'J-2 à Jour J', min: 0, max: 2, scores: [] },
-  ]
+  const buckets = buildEndOfDoseBuckets(settings.cycleDays).map((b) => ({
+    ...b,
+    scores: [] as number[],
+  }))
+  // Fenêtre « fin de cycle » proportionnelle au cycle (3 jours pour un cycle de 14 j)
+  const endOfCycleWindow = Math.max(1, Math.min(3, Math.round(settings.cycleDays / 4)))
 
   for (const e of periodEntries) {
     const nextInj = allInjectionDates.find((d) => d >= e.date)
-    if (!nextInj) continue
+    if (!nextInj || buckets.length === 0) continue
     const daysLeft = diffDays(e.date, nextInj)
     const meanSymptom = (e.digestivePain + e.jointPain + e.fatigue) / 3
     const bucket = buckets.find((b) => daysLeft >= b.min && daysLeft <= b.max)
@@ -181,7 +208,7 @@ export function buildMedicalReport(params: {
         hasEndOfDoseTag ||
         allInjectionDates.some((injDate) => {
           const delta = diffDays(e.date, injDate)
-          return delta >= 1 && delta <= 3
+          return delta >= 1 && delta <= endOfCycleWindow
         })
 
       peakDays.push({
@@ -233,7 +260,8 @@ export function buildMedicalReport(params: {
       latestDate: latest.date,
       previousValue: previous?.[meta.key],
       previousDate: previous?.date,
-      outOfRange: isMarkerOutOfRange(meta, latestValue),
+      outOfRange: isMarkerOutOfRange(meta, latestValue, settings.patientSex),
+      refText: getMarkerRange(meta, settings.patientSex).refText,
     })
   }
 
@@ -241,6 +269,8 @@ export function buildMedicalReport(params: {
     startDate,
     endDate,
     treatmentName: settings.treatmentName,
+    isOral: isOralTreatment(settings.treatmentName),
+    cycleDays: settings.cycleDays,
     doneInjections,
     shiftedInjections,
     totalLoggedDays,
@@ -269,24 +299,30 @@ export function buildMedicalReport(params: {
 
 export function formatReportAsText(report: MedicalReportSummary): string {
   const lines: string[] = []
-  lines.push(`BILAN DE SUIVI — MALADIE DE CROHN (${report.treatmentName})`)
+  lines.push(`BILAN DE SUIVI — MICI (${report.treatmentName})`)
   lines.push(
     `Période : du ${formatDateFr(report.startDate, { day: 'numeric', month: 'long', year: 'numeric' })} au ${formatDateFr(report.endDate, { day: 'numeric', month: 'long', year: 'numeric' })}`,
   )
   lines.push('')
 
   lines.push(`1. TRAITEMENT (${report.treatmentName})`)
-  lines.push(`- Injections réalisées : ${report.doneInjections.length}`)
+  lines.push(
+    `- ${report.isOral ? 'Prises' : 'Injections'} réalisées : ${report.doneInjections.length} (cycle ${report.cycleDays} j)`,
+  )
   for (const inj of report.doneInjections) {
     const d = formatShortDateFr(inj.actualDate ?? inj.scheduledDate)
-    lines.push(`  • ${d} — ${getSiteLabel(inj.site)} (${inj.doseMg} mg)`)
+    const details = [
+      inj.site ? getSiteLabel(inj.site) : undefined,
+      inj.doseMg > 0 ? `${inj.doseMg} mg` : undefined,
+    ].filter(Boolean)
+    lines.push(`  • ${d}${details.length ? ` — ${details.join(', ')}` : ''}`)
   }
   if (report.shiftedInjections.length > 0) {
     lines.push(`- Décalages enregistrés : ${report.shiftedInjections.length}`)
     for (const inj of report.shiftedInjections) {
       const sign = inj.shiftDays && inj.shiftDays > 0 ? `+${inj.shiftDays}` : inj.shiftDays
       lines.push(
-        `  • Prévue le ${formatShortDateFr(inj.scheduledDate)} → décalée de ${sign} j (${inj.shiftReason || 'Non précisé'})`,
+        `  • Prévue le ${formatShortDateFr(inj.scheduledDate)}, décalée de ${sign} j (${inj.shiftReason || 'Non précisé'})`,
       )
     }
   } else {
@@ -315,7 +351,9 @@ export function formatReportAsText(report: MedicalReportSummary): string {
   if (report.peakDays.length > 0) {
     lines.push(`- Pics de symptômes repérés (${report.peakDays.length}) :`)
     for (const p of report.peakDays) {
-      const cycleNote = p.isEndOfCycle ? ' [Fin de cycle avant injection]' : ''
+      const cycleNote = p.isEndOfCycle
+        ? ` [Fin de cycle avant ${report.isOral ? 'la prise' : "l'injection"}]`
+        : ''
       lines.push(`  • ${formatShortDateFr(p.date)} : ${p.details.join(', ')}${cycleNote}`)
     }
   }
@@ -342,23 +380,42 @@ export function formatReportAsText(report: MedicalReportSummary): string {
           : ''
       const flag = item.outOfRange ? ' [Hors norme]' : ''
       lines.push(
-        `- ${item.meta.shortLabel} (${formatShortDateFr(item.latestDate)}) : ${item.latestValue} ${item.meta.unit}${flag}${prevStr}`,
+        `- ${item.meta.shortLabel} (${formatShortDateFr(item.latestDate)}) : ${item.latestValue} ${item.meta.unit} (réf. ${item.refText})${flag}${prevStr}`,
       )
     }
+    lines.push(
+      '  Valeurs de référence indicatives : seules celles du laboratoire font foi.',
+    )
   }
 
   return lines.join('\n')
 }
 
-export function exportReportToPdf(report: MedicalReportSummary): void {
+/**
+ * La police Helvetica intégrée à jsPDF ne couvre que l'encodage WinAnsi :
+ * on remplace les caractères hors de ce jeu pour éviter un affichage illisible.
+ */
+export function toPdfSafeText(text: string): string {
+  return text
+    .replace(/[→⇒➜]/g, '->')
+    .replace(/[←]/g, '<-')
+    .replace(/≥/g, '>=')
+    .replace(/≤/g, '<=')
+    .replace(/[   ]/g, ' ')
+    .replace(/[^\n -~\xA0-\xFF‘’“”–—…•€Œœ]/g, '?')
+}
+
+export async function exportReportToPdf(report: MedicalReportSummary): Promise<void> {
+  // jsPDF (et ses dépendances) n'est chargé qu'au moment de l'export
+  const { jsPDF } = await import('jspdf')
   const doc = new jsPDF({ unit: 'mm', format: 'a4' })
-  const text = formatReportAsText(report)
+  const text = toPdfSafeText(formatReportAsText(report))
   const lines = doc.splitTextToSize(text, 180)
 
   doc.setFont('helvetica', 'bold')
   doc.setFontSize(14)
   doc.setTextColor(15, 118, 110)
-  doc.text('Rapport de suivi — Maladie de Crohn', 15, 18)
+  doc.text('Rapport de suivi — MICI (Crohn / RCH)', 15, 18)
 
   doc.setDrawColor(203, 213, 225)
   doc.line(15, 22, 195, 22)
@@ -377,5 +434,5 @@ export function exportReportToPdf(report: MedicalReportSummary): void {
     y += 5.8
   }
 
-  doc.save(`bilan-crohn-${report.startDate}_au_${report.endDate}.pdf`)
+  doc.save(`bilan-mici-${report.startDate}_au_${report.endDate}.pdf`)
 }

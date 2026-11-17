@@ -25,7 +25,7 @@ export interface InjectionRecord {
   actualDate?: string // YYYY-MM-DD
   status: InjectionStatus
   site?: InjectionSite
-  doseMg: number
+  doseMg: number // 0 = dose inconnue (non affichée)
   shiftDays?: number
   shiftReason?: string
   notes?: string
@@ -122,6 +122,10 @@ export interface AppSettings {
   secondaryTreatmentName?: string
   secondaryCycleDays?: number
   secondaryNextDate?: string
+  /** Sexe biologique : sert uniquement à choisir les valeurs de référence des bilans */
+  patientSex?: PatientSex
 }
+
+export type PatientSex = 'F' | 'M'
 
 export type AppTab = 'calendar' | 'journal' | 'labs' | 'report'

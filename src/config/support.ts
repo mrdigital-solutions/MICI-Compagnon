@@ -7,11 +7,23 @@ export const DONATION_URL = 'https://ko-fi.com/micicompagnon'
 export interface TreatmentPreset {
   name: string
   cycleDays: number
+  /** Traitement par voie orale (pas de site d'injection ni de stock de stylos) */
+  isOral?: boolean
 }
 
-export const APP_VERSION = '1.2'
+export const APP_VERSION = '1.3'
 
 export const CHANGELOG = [
+  {
+    version: '1.3 — 18 nov.',
+    items: [
+      'Sauvegarde complète : les PDF des bilans et la photo de la carte de priorité sont désormais inclus, avec confirmation avant toute restauration.',
+      'Traitements oraux (Imurel, Rinvoq…) : plus de zone d’injection ni de stock de stylos.',
+      'Dose correcte pour chaque traitement et courbe « fin de dose » adaptée à la durée de votre cycle.',
+      'Bilans : normes selon le sexe, lecture des PDF plus fiable (date de naissance ignorée, unités converties).',
+      'Rappels à l’heure de votre choix, zoom autorisé, application plus légère et plus rapide à ouvrir.',
+    ],
+  },
   {
     version: '1.2 — 17 nov.',
     items: [
@@ -40,6 +52,6 @@ export const TREATMENT_PRESETS: TreatmentPreset[] = [
   { name: 'Entyvio 108 mg', cycleDays: 14 },
   { name: 'Remicade / Infliximab', cycleDays: 56 },
   { name: 'Méthotrexate 15 mg', cycleDays: 7 },
-  { name: 'Imurel / Azathioprine', cycleDays: 1 },
-  { name: 'Rinvoq (comprimé)', cycleDays: 1 },
+  { name: 'Imurel / Azathioprine', cycleDays: 1, isOral: true },
+  { name: 'Rinvoq (comprimé)', cycleDays: 1, isOral: true },
 ]

@@ -3,19 +3,23 @@ import { useState } from 'react'
 import { getNextRecommendedSite, markInjectionDone } from '../../db/database'
 import type { InjectionRecord, InjectionSite } from '../../types'
 import { getTodayKey } from '../../utils/dateUtils'
+import { isOralTreatment } from '../../utils/treatment'
 import { InjectionSiteSelector } from './InjectionSiteSelector'
 
 interface ConfirmInjectionModalProps {
   injection: InjectionRecord
+  treatmentName: string
   lastSite?: InjectionSite
   onClose: () => void
 }
 
 export function ConfirmInjectionModal({
   injection,
+  treatmentName,
   lastSite,
   onClose,
 }: ConfirmInjectionModalProps) {
+  const oral = isOralTreatment(treatmentName)
   const recommendedSite = injection.site ?? getNextRecommendedSite(lastSite)
   const [site, setSite] = useState<InjectionSite>(recommendedSite)
   const [actualDate, setActualDate] = useState<string>(getTodayKey())
@@ -29,7 +33,7 @@ export function ConfirmInjectionModal({
     try {
       await markInjectionDone({
         injectionId: injection.id,
-        site,
+        site: oral ? undefined : site,
         actualDate,
         notes,
       })
@@ -49,11 +53,9 @@ export function ConfirmInjectionModal({
             </div>
             <div>
               <h2 className="text-base font-bold text-slate-900 dark:text-white">
-                Valider l'injection
+                {oral ? 'Valider la prise' : "Valider l'injection"}
               </h2>
-              <p className="text-xs text-slate-500 dark:text-slate-400">
-                Yuflima {injection.doseMg} mg
-              </p>
+              <p className="text-xs text-slate-500 dark:text-slate-400">{treatmentName}</p>
             </div>
           </div>
           <button
@@ -68,7 +70,7 @@ export function ConfirmInjectionModal({
         <form onSubmit={handleSubmit} className="p-5 space-y-4">
           <div>
             <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-2">
-              Date réelle d'injection
+              {oral ? 'Date réelle de la prise' : "Date réelle d'injection"}
             </label>
             <input
               type="date"
@@ -79,16 +81,18 @@ export function ConfirmInjectionModal({
             />
           </div>
 
-          <div>
-            <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-2">
-              Point d'injection (rotation)
-            </label>
-            <InjectionSiteSelector
-              value={site}
-              recommendedSite={recommendedSite}
-              onChange={setSite}
-            />
-          </div>
+          {!oral && (
+            <div>
+              <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-2">
+                Point d'injection (rotation)
+              </label>
+              <InjectionSiteSelector
+                value={site}
+                recommendedSite={recommendedSite}
+                onChange={setSite}
+              />
+            </div>
+          )}
 
           <div>
             <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-2">

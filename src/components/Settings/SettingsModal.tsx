@@ -1,6 +1,7 @@
 import {
   Bell,
   Coffee,
+  Lock,
   Download,
   ExternalLink,
   RefreshCw,
@@ -17,12 +18,18 @@ import {
   TREATMENT_PRESETS,
 } from '../../config/support'
 import {
+  BackupFormatError,
+  applyTreatmentToPlanned,
   db,
   exportAllDataToJson,
-  importAllDataFromJson,
+  parseBackupJson,
+  restoreBackup,
   updateCycleDaysAndRecalculate,
+  type ParsedBackup,
 } from '../../db/database'
-import type { AppSettings } from '../../types'
+import type { AppSettings, PatientSex } from '../../types'
+import { formatDateFr, getTodayKey, toDateKey } from '../../utils/dateUtils'
+import { isOralTreatment } from '../../utils/treatment'
 import {
   isNotificationSupported,
   requestNotificationPermission,
@@ -67,6 +74,10 @@ export function SettingsModal({ settings, onClose }: SettingsModalProps) {
   const [nextLabDate, setNextLabDate] = useState(settings.nextLabDate ?? '')
   const [reminderDayBefore, setReminderDayBefore] = useState(settings.reminderDayBefore)
   const [reminderSameDay, setReminderSameDay] = useState(settings.reminderSameDay)
+  const [reminderHour, setReminderHour] = useState(settings.reminderHour || '09:00')
+  const [patientSex, setPatientSex] = useState<PatientSex | ''>(settings.patientSex ?? '')
+  const [pendingBackup, setPendingBackup] = useState<ParsedBackup | null>(null)
+  const [importing, setImporting] = useState(false)
   const [notifStatus, setNotifStatus] = useState<string>(
     isNotificationSupported() ? Notification.permission : 'unsupported',
   )
@@ -82,24 +93,31 @@ export function SettingsModal({ settings, onClose }: SettingsModalProps) {
   }, [])
 
   async function handleSaveSettings() {
+    const nextTreatment = treatmentName.trim() || settings.treatmentName
     if (cycleDays !== settings.cycleDays) {
       await updateCycleDaysAndRecalculate(cycleDays)
     }
+    if (nextTreatment !== settings.treatmentName) {
+      // Met à jour la dose et la rotation des sites des prises encore prévues
+      await applyTreatmentToPlanned(nextTreatment)
+    }
     await db.settings.update('default', {
-      treatmentName: treatmentName.trim() || settings.treatmentName,
+      treatmentName: nextTreatment,
       secondaryTreatmentName: secondaryTreatmentName.trim() || undefined,
       secondaryCycleDays: secondaryTreatmentName.trim() ? secondaryCycleDays : undefined,
       secondaryNextDate:
         secondaryTreatmentName.trim() && secondaryNextDate
           ? secondaryNextDate
           : secondaryTreatmentName.trim()
-            ? new Date().toISOString().slice(0, 10)
+            ? getTodayKey()
             : undefined,
       penStock,
       nextDoctorAppointment: nextDoctorAppointment || undefined,
       nextLabDate: nextLabDate || undefined,
       reminderDayBefore,
       reminderSameDay,
+      reminderHour,
+      patientSex: patientSex || undefined,
     })
     setFeedback('Paramètres enregistrés.')
     setTimeout(() => setFeedback(null), 2000)
@@ -116,20 +134,43 @@ export function SettingsModal({ settings, onClose }: SettingsModalProps) {
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
-    a.download = `crohn-suivi-backup-${new Date().toISOString().slice(0, 10)}.json`
+    a.download = `mici-compagnon-sauvegarde-${getTodayKey()}.json`
     a.click()
-    URL.revokeObjectURL(url)
+    window.setTimeout(() => URL.revokeObjectURL(url), 10000)
   }
 
+  /** Étape 1 : lecture et vérification du fichier, sans rien modifier. */
   async function handleImportJson(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
+    // Réinitialise le champ pour pouvoir re-sélectionner le même fichier
+    e.target.value = ''
     if (!file) return
     try {
       const text = await file.text()
-      await importAllDataFromJson(text)
-      setFeedback('Sauvegarde importée avec succès.')
+      setPendingBackup(parseBackupJson(text))
+      setFeedback(null)
+    } catch (err) {
+      setPendingBackup(null)
+      setFeedback(
+        err instanceof BackupFormatError
+          ? `Erreur : ${err.message}`
+          : 'Erreur : impossible de lire ce fichier.',
+      )
+    }
+  }
+
+  /** Étape 2 : remplacement des données après confirmation explicite. */
+  async function handleConfirmRestore() {
+    if (!pendingBackup) return
+    setImporting(true)
+    try {
+      await restoreBackup(pendingBackup)
+      setPendingBackup(null)
+      setFeedback('Sauvegarde restaurée avec succès.')
     } catch {
-      setFeedback('Erreur : fichier JSON invalide.')
+      setFeedback('Erreur pendant la restauration : vos données actuelles sont conservées.')
+    } finally {
+      setImporting(false)
     }
   }
 
@@ -250,7 +291,7 @@ export function SettingsModal({ settings, onClose }: SettingsModalProps) {
                         setSecondaryIsCustom(true)
                         if (!secondaryTreatmentName) setSecondaryTreatmentName('')
                         if (!secondaryNextDate) {
-                          setSecondaryNextDate(new Date().toISOString().slice(0, 10))
+                          setSecondaryNextDate(getTodayKey())
                         }
                       } else {
                         setSecondaryIsCustom(false)
@@ -258,7 +299,7 @@ export function SettingsModal({ settings, onClose }: SettingsModalProps) {
                         const found = TREATMENT_PRESETS.find((p) => p.name === val)
                         if (found) setSecondaryCycleDays(found.cycleDays)
                         if (!secondaryNextDate) {
-                          setSecondaryNextDate(new Date().toISOString().slice(0, 10))
+                          setSecondaryNextDate(getTodayKey())
                         }
                       }
                     }}
@@ -335,7 +376,7 @@ export function SettingsModal({ settings, onClose }: SettingsModalProps) {
                   </div>
                 </div>
                 <div className="grid grid-cols-2 gap-2.5">
-                  <div>
+                  <div className={isOralTreatment(treatmentName) ? 'hidden' : ''}>
                     <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1">
                       Stock stylos
                     </label>
@@ -371,6 +412,24 @@ export function SettingsModal({ settings, onClose }: SettingsModalProps) {
                     className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs font-semibold text-slate-900 dark:text-white"
                   />
                 </div>
+                <div>
+                  <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1">
+                    Sexe (valeurs de référence des bilans)
+                  </label>
+                  <select
+                    value={patientSex}
+                    onChange={(e) => setPatientSex(e.target.value as PatientSex | '')}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs font-semibold text-slate-900 dark:text-white"
+                  >
+                    <option value="">Non renseigné (normes hommes par défaut)</option>
+                    <option value="F">Femme</option>
+                    <option value="M">Homme</option>
+                  </select>
+                  <p className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
+                    Certaines normes (hématies, transaminases, GGT) diffèrent selon le sexe. Les
+                    valeurs du laboratoire font toujours foi.
+                  </p>
+                </div>
               </div>
 
               {/* Reminders */}
@@ -396,6 +455,20 @@ export function SettingsModal({ settings, onClose }: SettingsModalProps) {
                     className="w-4 h-4 accent-teal-600"
                   />
                 </label>
+                <label className="flex items-center justify-between p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/50 text-sm">
+                  <span>Heure du rappel</span>
+                  <input
+                    type="time"
+                    value={reminderHour}
+                    onChange={(e) => setReminderHour(e.target.value || '09:00')}
+                    className="px-2 py-1 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm font-semibold"
+                  />
+                </label>
+                <p className="text-[11px] leading-relaxed text-slate-500 dark:text-slate-400">
+                  Les notifications s'affichent quand l'application est ouverte. Pour un rappel
+                  garanti même appli fermée, utilisez « Ajouter le rappel à mon Agenda (.ics) » sur
+                  le calendrier.
+                </p>
 
                 <button
                   type="button"
@@ -444,11 +517,49 @@ export function SettingsModal({ settings, onClose }: SettingsModalProps) {
                   <input
                     ref={fileInputRef}
                     type="file"
-                    accept="application/json"
+                    accept="application/json,.json"
                     onChange={handleImportJson}
                     className="hidden"
                   />
                 </div>
+                <p className="text-[11px] leading-relaxed text-slate-500 dark:text-slate-400">
+                  Le fichier contient toutes vos données de santé en clair (journal, bilans et PDF,
+                  carte de priorité) : conservez-le en lieu sûr et ne le partagez pas.
+                </p>
+
+                {pendingBackup && (
+                  <div className="p-3 rounded-2xl border border-rose-200 dark:border-rose-800/60 bg-rose-50/80 dark:bg-rose-950/30 space-y-2">
+                    <p className="text-xs font-semibold text-rose-900 dark:text-rose-100">
+                      Remplacer toutes vos données actuelles par cette sauvegarde
+                      {pendingBackup.exportedAt
+                        ? ` du ${formatDateFr(toDateKey(new Date(pendingBackup.exportedAt)), { day: 'numeric', month: 'long', year: 'numeric' })}`
+                        : ''}{' '}
+                      ?
+                    </p>
+                    <p className="text-[11px] text-rose-800 dark:text-rose-200">
+                      {pendingBackup.injections.length} prise(s), {pendingBackup.dailyEntries.length}{' '}
+                      jour(s) de journal, {pendingBackup.labResults.length} bilan(s). Les données
+                      actuelles de ce téléphone seront effacées.
+                    </p>
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setPendingBackup(null)}
+                        className="flex-1 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-600 dark:text-slate-300"
+                      >
+                        Annuler
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleConfirmRestore}
+                        disabled={importing}
+                        className="flex-1 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 disabled:opacity-50 text-white text-xs font-semibold"
+                      >
+                        {importing ? 'Restauration...' : 'Remplacer mes données'}
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
 
               {feedback && (
@@ -520,6 +631,19 @@ export function SettingsModal({ settings, onClose }: SettingsModalProps) {
                     </button>
                   </div>
                 )}
+              </div>
+
+              {/* Confidentialité */}
+              <div className="pt-3 border-t border-slate-100 dark:border-slate-800 space-y-1.5">
+                <p className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                  <Lock className="w-3.5 h-3.5" />
+                  Confidentialité
+                </p>
+                <p className="text-[11px] leading-relaxed text-slate-600 dark:text-slate-300">
+                  Vos données de santé restent uniquement sur cet appareil : aucun compte, aucun
+                  serveur, rien n'est envoyé. Seule une mesure d'audience anonyme (GoatCounter, sans
+                  cookie ni donnée de santé) compte les visites et installations de l'application.
+                </p>
               </div>
 
               {/* Changelog / Nouveautés */}

@@ -114,7 +114,9 @@ export function ReportTab() {
             </button>
             <button
               type="button"
-              onClick={() => exportReportToPdf(report)}
+              onClick={() => {
+                void exportReportToPdf(report)
+              }}
               className="inline-flex items-center justify-center gap-2 px-3.5 py-2.5 rounded-2xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 text-xs font-semibold hover:bg-slate-50"
             >
               <Download className="w-4 h-4" />
@@ -187,7 +189,7 @@ export function ReportTab() {
           <div className="grid grid-cols-2 gap-2.5">
             <div className="p-3 rounded-2xl bg-emerald-50/80 dark:bg-emerald-950/30 border border-emerald-200/60 dark:border-emerald-800/40">
               <p className="text-[11px] font-semibold text-emerald-700 dark:text-emerald-300">
-                Injections réalisées
+                {report.isOral ? 'Prises réalisées' : 'Injections réalisées'}
               </p>
               <p className="text-2xl font-extrabold text-emerald-900 dark:text-emerald-100 mt-0.5">
                 {report.doneInjections.length}
@@ -214,7 +216,7 @@ export function ReportTab() {
                     {formatShortDateFr(inj.actualDate ?? inj.scheduledDate)}
                   </span>
                   <span className="text-slate-500 dark:text-slate-400">
-                    {getSiteLabel(inj.site)}
+                    {inj.site ? getSiteLabel(inj.site) : inj.doseMg > 0 ? `${inj.doseMg} mg` : ''}
                   </span>
                 </li>
               ))}
@@ -405,13 +407,17 @@ export function ReportTab() {
           <div className="flex items-center gap-2">
             <BarChart3 className="w-4 h-4 text-teal-600 dark:text-teal-400" />
             <h3 className="text-sm font-bold text-slate-900 dark:text-white">
-              Effet « fin de dose » (symptômes avant l'injection)
+              Effet « fin de dose » (symptômes avant {report.isOral ? 'la prise' : "l'injection"})
             </h3>
           </div>
           <span className="text-[11px] text-slate-400">Score moyen / 5</span>
         </div>
 
-        {report.endOfDoseCurve.some((b) => b.daysCount > 0) ? (
+        {report.endOfDoseCurve.length === 0 ? (
+          <p className="text-xs text-slate-500 dark:text-slate-400">
+            Non pertinent pour un traitement pris tous les jours ou presque (cycle de {report.cycleDays} j).
+          </p>
+        ) : report.endOfDoseCurve.some((b) => b.daysCount > 0) ? (
           <div className="h-44 w-full">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={report.endOfDoseCurve} margin={{ top: 8, right: 12, left: -16, bottom: 0 }}>
@@ -428,7 +434,7 @@ export function ReportTab() {
           </div>
         ) : (
           <p className="text-xs text-slate-500 dark:text-slate-400">
-            Saisissez quelques jours dans le journal pour visualiser si vos symptômes augmentent à l'approche de l'injection.
+            Saisissez quelques jours dans le journal pour visualiser si vos symptômes augmentent à l'approche de {report.isOral ? 'la prise' : "l'injection"}.
           </p>
         )}
       </section>
@@ -472,6 +478,7 @@ export function ReportTab() {
                   {formatShortDateFr(item.latestDate)}
                   {item.previousValue !== undefined && ` (vs ${item.previousValue})`}
                 </p>
+                <p className="text-[10px] text-slate-400">Réf. {item.refText}</p>
               </div>
             ))}
           </div>

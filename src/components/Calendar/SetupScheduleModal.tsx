@@ -4,6 +4,7 @@ import { TREATMENT_PRESETS } from '../../config/support'
 import { initializeInjectionSchedule } from '../../db/database'
 import type { InjectionSite } from '../../types'
 import { getTodayKey } from '../../utils/dateUtils'
+import { isOralTreatment } from '../../utils/treatment'
 import { InjectionSiteSelector } from './InjectionSiteSelector'
 
 interface SetupScheduleModalProps {
@@ -33,7 +34,7 @@ export function SetupScheduleModal({
         treatmentName,
         nextInjectionDate: nextDate,
         cycleDays,
-        lastSite,
+        lastSite: isOralTreatment(treatmentName) ? undefined : lastSite,
       })
       onDone()
     } finally {
@@ -52,7 +53,7 @@ export function SetupScheduleModal({
             Planifier votre traitement
           </h2>
           <p className="text-xs text-slate-500 dark:text-slate-400">
-            Configurez votre biothérapie et votre prochaine injection pour générer le calendrier.
+            Configurez votre traitement et votre prochaine prise pour générer le calendrier.
           </p>
         </div>
       </div>
@@ -93,7 +94,7 @@ export function SetupScheduleModal({
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
             <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5">
-              Prochaine injection
+              {isOralTreatment(treatmentName) ? 'Prochaine prise' : 'Prochaine injection'}
             </label>
             <input
               type="date"
@@ -119,12 +120,14 @@ export function SetupScheduleModal({
           </div>
         </div>
 
-        <div>
-          <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-2">
-            Dernière zone utilisée (pour calculer la rotation)
-          </label>
-          <InjectionSiteSelector value={lastSite} onChange={setLastSite} />
-        </div>
+        {!isOralTreatment(treatmentName) && (
+          <div>
+            <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-2">
+              Dernière zone utilisée (pour calculer la rotation)
+            </label>
+            <InjectionSiteSelector value={lastSite} onChange={setLastSite} />
+          </div>
+        )}
 
         <div className="flex gap-2.5 pt-1">
           {onCancel && (

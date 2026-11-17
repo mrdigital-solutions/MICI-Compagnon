@@ -3,6 +3,14 @@ interface BeforeInstallPromptEvent extends Event {
   userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>
 }
 
+declare global {
+  interface Window {
+    goatcounter?: {
+      count: (vars?: { path?: string; title?: string; event?: boolean }) => void
+    }
+  }
+}
+
 let deferredPrompt: BeforeInstallPromptEvent | null = null
 const listeners = new Set<() => void>()
 
@@ -16,6 +24,11 @@ export function initPwaInstallListener(): void {
   window.addEventListener('appinstalled', () => {
     deferredPrompt = null
     listeners.forEach((cb) => cb())
+    window.goatcounter?.count({
+      path: '/app-installed',
+      title: 'Application installée',
+      event: true,
+    })
   })
 }
 

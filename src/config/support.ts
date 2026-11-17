@@ -2,7 +2,7 @@
  * Remplacez cette URL par votre lien Ko-fi, PayPal.me ou Buy Me a Coffee
  * dès que votre page de don est créée.
  */
-export const DONATION_URL = ''
+export const DONATION_URL = 'https://ko-fi.com/micicompagnon'
 
 export interface TreatmentPreset {
   name: string

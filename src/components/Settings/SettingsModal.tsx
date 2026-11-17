@@ -345,11 +345,12 @@ export function SettingsModal({ settings, onClose }: SettingsModalProps) {
                 <div className="rounded-2xl bg-gradient-to-br from-amber-50 to-orange-50/70 dark:from-slate-800/80 dark:to-slate-800 border border-amber-200/60 dark:border-slate-700 p-4 space-y-2.5">
                   <div className="flex items-center gap-2 text-amber-900 dark:text-amber-200">
                     <Coffee className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />
-                    <p className="text-xs font-bold">Soutenir le projet (100 % gratuit)</p>
+                    <p className="text-xs font-bold">Soutenir MICI Compagnon (Bêta gratuite)</p>
                   </div>
                   <p className="text-[11px] leading-relaxed text-slate-600 dark:text-slate-300">
-                    Application gratuite, sans publicité et respectueuse de votre vie privée : toutes
-                    vos données de santé restent uniquement sur votre appareil.
+                    Phase de test 100 % gratuite, sans pub et privée (données stockées sur votre
+                    appareil). Les personnes qui soutiennent le projet pendant cette période auront
+                    l'accès à vie offert à la future version complète.
                   </p>
                   {DONATION_URL ? (
                     <a
@@ -359,7 +360,7 @@ export function SettingsModal({ settings, onClose }: SettingsModalProps) {
                       className="w-full inline-flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-xs font-semibold transition-colors"
                     >
                       <Coffee className="w-4 h-4" />
-                      Offrir un café / Faire un don
+                      Soutenir le projet sur Ko-fi
                       <ExternalLink className="w-3.5 h-3.5" />
                     </a>
                   ) : (

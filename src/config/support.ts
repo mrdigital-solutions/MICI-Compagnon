@@ -9,19 +9,13 @@ export interface TreatmentPreset {
   cycleDays: number
 }
 
-export const APP_VERSION = '1.3'
+export const APP_VERSION = '1.2'
 
 export const CHANGELOG = [
   {
-    version: '1.3 — 18 nov.',
-    items: [
-      'Combothérapie : possibilité d’ajouter un 2e traitement (ex : Humira + Méthotrexate, Infliximab + Imurel) dans Paramètres et sur le Calendrier.',
-      'Ajout de Méthotrexate 15 mg et Imurel / Azathioprine dans les pré-réglages.',
-    ],
-  },
-  {
     version: '1.2 — 17 nov.',
     items: [
+      'Combothérapie : possibilité d’ajouter un 2e traitement (ex : Humira + Méthotrexate, Infliximab + Imurel) dans Paramètres et sur le Calendrier.',
       'Carte Urgence améliorée : onglets séparés Carte Toilettes & Fiche Secours (groupe sanguin, allergies, proche à prévenir).',
       'Ajout de votre carte de priorité (AFA / CMI) en photo avec affichage plein écran.',
       'Journal : suivi des migraines (0 à 5), aliments suspectés et tags Virus / Antibiotiques comptés dans le Rapport Médecin.',

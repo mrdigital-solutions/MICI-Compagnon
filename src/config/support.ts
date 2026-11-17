@@ -9,6 +9,27 @@ export interface TreatmentPreset {
   cycleDays: number
 }
 
+export const APP_VERSION = '1.2'
+
+export const CHANGELOG = [
+  {
+    version: '1.2 — 17 nov.',
+    items: [
+      'Carte Urgence améliorée : onglets séparés Carte Toilettes & Fiche Secours (groupe sanguin, allergies, proche à prévenir).',
+      'Ajout de votre carte de priorité (AFA / CMI) en photo avec affichage plein écran.',
+      'Journal : suivi des migraines (0 à 5), aliments suspectés et tags Virus / Antibiotiques comptés dans le Rapport Médecin.',
+      'Textes et compteurs agrandis sur mobile + installation en 1 clic.',
+    ],
+  },
+  {
+    version: '1.1 — 16 nov.',
+    items: [
+      'Import PDF automatique amélioré (conservation du PDF original hors-ligne + détection Calprotectine).',
+      'Conseils bien-être illustrés et pause respiration calme.',
+    ],
+  },
+] as const
+
 export const TREATMENT_PRESETS: TreatmentPreset[] = [
   { name: 'Yuflima 80 mg', cycleDays: 14 },
   { name: 'Yuflima 40 mg', cycleDays: 14 },

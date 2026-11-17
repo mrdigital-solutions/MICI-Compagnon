@@ -10,7 +10,7 @@ import {
   X,
 } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
-import { DONATION_URL } from '../../config/support'
+import { DONATION_URL, APP_VERSION, CHANGELOG } from '../../config/support'
 import {
   db,
   exportAllDataToJson,
@@ -49,6 +49,7 @@ export function SettingsModal({ settings, onClose }: SettingsModalProps) {
     isNotificationSupported() ? Notification.permission : 'unsupported',
   )
   const [showReschedule, setShowReschedule] = useState(false)
+  const [showChangelog, setShowChangelog] = useState(false)
   const [confirmReset, setConfirmReset] = useState(false)
   const [canInstall, setCanInstall] = useState(() => canPromptPwaInstall())
   const [feedback, setFeedback] = useState<string | null>(null)
@@ -379,6 +380,36 @@ export function SettingsModal({ settings, onClose }: SettingsModalProps) {
                     >
                       Confirmer la remise à zéro
                     </button>
+                  </div>
+                )}
+              </div>
+
+              {/* Changelog / Nouveautés */}
+              <div className="pt-3 border-t border-slate-100 dark:border-slate-800 space-y-2">
+                <button
+                  type="button"
+                  onClick={() => setShowChangelog((v) => !v)}
+                  className="w-full flex items-center justify-between py-2 px-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 text-xs font-semibold text-slate-700 dark:text-slate-200"
+                >
+                  <span>Nouveautés de l'application (v{APP_VERSION})</span>
+                  <span className="text-teal-600 dark:text-teal-400">
+                    {showChangelog ? 'Masquer' : 'Voir'}
+                  </span>
+                </button>
+                {showChangelog && (
+                  <div className="p-3 rounded-2xl bg-slate-50/80 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-700/60 space-y-3 text-[11px] text-slate-600 dark:text-slate-300">
+                    {CHANGELOG.map((rel) => (
+                      <div key={rel.version} className="space-y-1">
+                        <p className="font-bold text-slate-800 dark:text-slate-100">
+                          Version {rel.version}
+                        </p>
+                        <ul className="list-disc pl-4 space-y-0.5">
+                          {rel.items.map((item) => (
+                            <li key={item}>{item}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    ))}
                   </div>
                 )}
               </div>

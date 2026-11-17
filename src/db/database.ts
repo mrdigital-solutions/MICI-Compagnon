@@ -338,13 +338,21 @@ export async function exportAllDataToJson(): Promise<string> {
   ])
 
   const serializableLabs = labResults.map(({ pdfBlob: _blob, ...rest }) => rest)
+  const serializableSettings = settings.map(
+    ({ priorityCardBlob: _card, ...rest }) => rest,
+  )
 
   return JSON.stringify(
     {
       version: 1,
       exportedAt: new Date().toISOString(),
       app: 'mici-compagnon',
-      data: { injections, dailyEntries, labResults: serializableLabs, settings },
+      data: {
+        injections,
+        dailyEntries,
+        labResults: serializableLabs,
+        settings: serializableSettings,
+      },
     },
     null,
     2,

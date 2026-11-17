@@ -1,5 +1,16 @@
-import { Edit3, HeartHandshake, Phone, ShieldAlert, Stethoscope, User, X } from 'lucide-react'
-import { useState } from 'react'
+import {
+  Camera,
+  Edit3,
+  HeartHandshake,
+  Maximize2,
+  Phone,
+  ShieldAlert,
+  Stethoscope,
+  Trash2,
+  User,
+  X,
+} from 'lucide-react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { db } from '../../db/database'
 import type { AppSettings } from '../../types'
 
@@ -27,6 +38,42 @@ export function EmergencyCardModal({ settings, onClose }: EmergencyCardModalProp
   )
   const [emergencyNotes, setEmergencyNotes] = useState(settings.emergencyNotes ?? '')
   const [saving, setSaving] = useState(false)
+  const [fullscreenCard, setFullscreenCard] = useState(false)
+  const cardInputRef = useRef<HTMLInputElement>(null)
+
+  const cardPreviewUrl = useMemo(() => {
+    if (settings.priorityCardBlob instanceof Blob) {
+      return URL.createObjectURL(settings.priorityCardBlob)
+    }
+    return null
+  }, [settings.priorityCardBlob])
+
+  useEffect(() => {
+    return () => {
+      if (cardPreviewUrl) URL.revokeObjectURL(cardPreviewUrl)
+    }
+  }, [cardPreviewUrl])
+
+  async function handleCardUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    if (!file) return
+    const blob = new Blob([await file.arrayBuffer()], {
+      type: file.type || 'image/jpeg',
+    })
+    await db.settings.update('default', {
+      priorityCardBlob: blob,
+      priorityCardName: file.name,
+    })
+  }
+
+  async function handleRemoveCard() {
+    await db.settings.update('default', {
+      priorityCardBlob: undefined,
+      priorityCardName: undefined,
+    })
+    setFullscreenCard(false)
+  }
 
   async function handleSave(e: React.FormEvent) {
     e.preventDefault()
@@ -112,8 +159,67 @@ export function EmergencyCardModal({ settings, onClose }: EmergencyCardModalProp
                   Merci de me laisser accéder aux toilettes en urgence.
                 </p>
               </div>
+
+              {/* Priority / AFA Card Photo */}
+              <div className="space-y-2">
+                {cardPreviewUrl ? (
+                  <div className="rounded-2xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 p-3 space-y-2.5">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="font-bold text-slate-700 dark:text-slate-200">
+                        Ma carte de priorité / AFA
+                      </span>
+                      <div className="flex items-center gap-1">
+                        <button
+                          type="button"
+                          onClick={() => setFullscreenCard(true)}
+                          className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 font-semibold"
+                        >
+                          <Maximize2 className="w-3 h-3" />
+                          Agrandir
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleRemoveCard}
+                          aria-label="Supprimer la carte"
+                          className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setFullscreenCard(true)}
+                      className="w-full block overflow-hidden rounded-xl border border-slate-100 dark:border-slate-700"
+                    >
+                      <img
+                        src={cardPreviewUrl}
+                        alt="Carte de priorité"
+                        className="w-full max-h-56 object-contain bg-slate-50 dark:bg-slate-900"
+                      />
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => cardInputRef.current?.click()}
+                    className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-2xl border-2 border-dashed border-rose-200 dark:border-rose-800/60 bg-rose-50/40 dark:bg-rose-950/20 hover:bg-rose-50 text-xs font-bold text-rose-700 dark:text-rose-300 transition-colors"
+                  >
+                    <Camera className="w-4 h-4" />
+                    Ajouter ma carte en photo (AFA / CMI Priorité)
+                  </button>
+                )}
+                <input
+                  ref={cardInputRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={handleCardUpload}
+                  className="hidden"
+                />
+              </div>
+
               <p className="text-[11px] text-center text-slate-400">
-                Cet écran masque vos données médicales privées pour pouvoir le montrer directement.
+                Stocké uniquement sur votre téléphone · Aucune donnée médicale affichée ici.
               </p>
             </div>
           )}
@@ -357,6 +463,27 @@ export function EmergencyCardModal({ settings, onClose }: EmergencyCardModalProp
           )}
         </div>
       </div>
+
+      {fullscreenCard && cardPreviewUrl && (
+        <div
+          onClick={() => setFullscreenCard(false)}
+          className="fixed inset-0 z-[60] bg-black/90 flex flex-col items-center justify-center p-4"
+        >
+          <button
+            type="button"
+            onClick={() => setFullscreenCard(false)}
+            className="self-end mb-3 p-2.5 rounded-full bg-white/15 text-white"
+            aria-label="Fermer l'aperçu"
+          >
+            <X className="w-6 h-6" />
+          </button>
+          <img
+            src={cardPreviewUrl}
+            alt="Carte de priorité en plein écran"
+            className="max-w-full max-h-[82vh] object-contain rounded-2xl shadow-2xl"
+          />
+        </div>
+      )}
     </div>
   )
 }

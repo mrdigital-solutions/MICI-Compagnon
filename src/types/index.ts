@@ -117,6 +117,8 @@ export interface AppSettings {
   emergencyContactName?: string
   emergencyContactPhone?: string
   emergencyNotes?: string
+  priorityCardBlob?: Blob
+  priorityCardName?: string
 }
 
 export type AppTab = 'calendar' | 'journal' | 'labs' | 'report'

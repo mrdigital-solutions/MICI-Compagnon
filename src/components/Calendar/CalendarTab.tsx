@@ -204,7 +204,7 @@ export function CalendarTab({ settings, onSelectDay }: CalendarTabProps) {
                     {formatDateFr(nextPlanned.scheduledDate)}
                   </h2>
                 </div>
-                <span className="shrink-0 px-3 py-1 rounded-full text-xs font-bold bg-teal-50 dark:bg-teal-900/50 text-teal-700 dark:text-teal-200 border border-teal-200/60 dark:border-teal-700/40">
+                <span className="shrink-0 px-3.5 py-1.5 rounded-full text-sm font-extrabold bg-teal-50 dark:bg-teal-900/50 text-teal-700 dark:text-teal-200 border border-teal-200/60 dark:border-teal-700/40">
                   {daysUntilNext === 0
                     ? "Aujourd'hui"
                     : daysUntilNext === 1
@@ -280,11 +280,11 @@ export function CalendarTab({ settings, onSelectDay }: CalendarTabProps) {
                   <span className="text-slate-600 dark:text-slate-300">
                     Stock :{' '}
                     <strong
-                      className={
+                      className={`text-sm font-extrabold ${
                         (settings.penStock ?? 0) <= 1
                           ? 'text-amber-600 dark:text-amber-400'
                           : 'text-slate-900 dark:text-white'
-                      }
+                      }`}
                     >
                       {settings.penStock ?? 0} stylo{(settings.penStock ?? 0) > 1 ? 's' : ''}
                     </strong>
@@ -340,7 +340,7 @@ export function CalendarTab({ settings, onSelectDay }: CalendarTabProps) {
                       </p>
                     </div>
                   </div>
-                  <span className="px-2.5 py-1 rounded-full bg-teal-50 dark:bg-teal-900/40 text-teal-700 dark:text-teal-300 font-bold text-[11px]">
+                  <span className="px-3 py-1 rounded-full bg-teal-50 dark:bg-teal-900/40 text-teal-700 dark:text-teal-300 font-extrabold text-sm">
                     {(() => {
                       const d = diffDays(today, settings.nextDoctorAppointment)
                       return d === 0 ? "Aujourd'hui" : d > 0 ? `J-${d}` : `Passé`
@@ -364,7 +364,7 @@ export function CalendarTab({ settings, onSelectDay }: CalendarTabProps) {
                       </p>
                     </div>
                   </div>
-                  <span className="px-2.5 py-1 rounded-full bg-amber-50 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 font-bold text-[11px]">
+                  <span className="px-3 py-1 rounded-full bg-amber-50 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 font-extrabold text-sm">
                     {(() => {
                       const d = diffDays(today, settings.nextLabDate)
                       return d === 0 ? "Aujourd'hui" : d > 0 ? `J-${d}` : `Passé`

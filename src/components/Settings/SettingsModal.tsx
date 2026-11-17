@@ -259,10 +259,10 @@ export function SettingsModal({ settings, onClose }: SettingsModalProps) {
                 Enregistrer les préférences
               </button>
 
-              {/* JSON Backup */}
+              {/* Backup & Restore */}
               <div className="pt-3 border-t border-slate-100 dark:border-slate-800 space-y-2.5">
                 <p className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                  Sauvegarde locale (JSON)
+                  Sauvegarde (changement de téléphone)
                 </p>
                 <div className="grid grid-cols-2 gap-2.5">
                   <button
@@ -271,7 +271,7 @@ export function SettingsModal({ settings, onClose }: SettingsModalProps) {
                     className="flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-700 dark:text-slate-200"
                   >
                     <Download className="w-4 h-4" />
-                    Exporter JSON
+                    Sauvegarder
                   </button>
                   <button
                     type="button"
@@ -279,7 +279,7 @@ export function SettingsModal({ settings, onClose }: SettingsModalProps) {
                     className="flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-700 dark:text-slate-200"
                   >
                     <Upload className="w-4 h-4" />
-                    Importer JSON
+                    Restaurer
                   </button>
                   <input
                     ref={fileInputRef}

@@ -36,16 +36,21 @@ export interface MedicalReportSummary {
   digestiveDays: number
   jointDays: number
   fatigueDays: number
+  migraineDays: number
   feverDays: number
+  virusDays: number
+  antibioticDays: number
   avgDigestive: number
   avgJoint: number
   avgFatigue: number
+  avgMigraine: number
   avgStoolCount: number
   liquidStoolDays: number
   nocturnalStoolDays: number
   bloodStoolDays: number
   endOfDoseCurve: EndOfDoseBucket[]
   peakDays: PeakDayInfo[]
+  topSuspectedFoods: { food: string; count: number }[]
   topTags: { tag: string; count: number }[]
   labComparisons: LabComparisonItem[]
 }
@@ -89,7 +94,14 @@ export function buildMedicalReport(params: {
   const digestiveDays = periodEntries.filter((e) => e.digestivePain > 0).length
   const jointDays = periodEntries.filter((e) => e.jointPain > 0).length
   const fatigueDays = periodEntries.filter((e) => e.fatigue > 0).length
+  const migraineDays = periodEntries.filter((e) => (e.migraine ?? 0) > 0).length
   const feverDays = periodEntries.filter((e) => e.feverOrInfection).length
+  const virusDays = periodEntries.filter((e) =>
+    e.tags.some((t) => t.toLowerCase().includes('virus') || t.toLowerCase().includes('rhume')),
+  ).length
+  const antibioticDays = periodEntries.filter((e) =>
+    e.tags.some((t) => t.toLowerCase().includes('antibio')),
+  ).length
 
   const avgDigestive =
     totalLoggedDays > 0
@@ -102,6 +114,10 @@ export function buildMedicalReport(params: {
   const avgFatigue =
     totalLoggedDays > 0
       ? round1(periodEntries.reduce((s, e) => s + e.fatigue, 0) / totalLoggedDays)
+      : 0
+  const avgMigraine =
+    totalLoggedDays > 0
+      ? round1(periodEntries.reduce((s, e) => s + (e.migraine ?? 0), 0) / totalLoggedDays)
       : 0
 
   const entriesWithStools = periodEntries.filter((e) => e.stoolCount !== undefined)
@@ -149,13 +165,15 @@ export function buildMedicalReport(params: {
 
   const peakDays: PeakDayInfo[] = []
   for (const e of periodEntries) {
-    const maxScore = Math.max(e.digestivePain, e.jointPain, e.fatigue)
+    const mig = e.migraine ?? 0
+    const maxScore = Math.max(e.digestivePain, e.jointPain, e.fatigue, mig)
     const hasEndOfDoseTag = e.tags.some((t) => t.toLowerCase().includes('fin de dose'))
     if (maxScore >= 3 || e.feverOrInfection || hasEndOfDoseTag) {
       const details: string[] = []
       if (e.digestivePain >= 3) details.push(`Digestif ${e.digestivePain}/5`)
       if (e.jointPain >= 3) details.push(`Articulaire ${e.jointPain}/5`)
       if (e.fatigue >= 3) details.push(`Fatigue ${e.fatigue}/5`)
+      if (mig >= 3) details.push(`Migraine ${mig}/5`)
       if (e.feverOrInfection) details.push('Fièvre/Infection')
       if (hasEndOfDoseTag) details.push('Tag Fin de dose')
 
@@ -175,15 +193,24 @@ export function buildMedicalReport(params: {
     }
   }
 
-  // Count tags
+  // Count tags & suspected foods
   const tagMap = new Map<string, number>()
+  const foodMap = new Map<string, number>()
   for (const e of periodEntries) {
     for (const t of e.tags) {
       tagMap.set(t, (tagMap.get(t) ?? 0) + 1)
     }
+    for (const f of e.suspectedFoods ?? []) {
+      foodMap.set(f, (foodMap.get(f) ?? 0) + 1)
+    }
   }
   const topTags = Array.from(tagMap.entries())
     .map(([tag, count]) => ({ tag, count }))
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 6)
+
+  const topSuspectedFoods = Array.from(foodMap.entries())
+    .map(([food, count]) => ({ food, count }))
     .sort((a, b) => b.count - a.count)
     .slice(0, 6)
 
@@ -220,16 +247,21 @@ export function buildMedicalReport(params: {
     digestiveDays,
     jointDays,
     fatigueDays,
+    migraineDays,
     feverDays,
+    virusDays,
+    antibioticDays,
     avgDigestive,
     avgJoint,
     avgFatigue,
+    avgMigraine,
     avgStoolCount,
     liquidStoolDays,
     nocturnalStoolDays,
     bloodStoolDays,
     endOfDoseCurve,
     peakDays,
+    topSuspectedFoods,
     topTags,
     labComparisons,
   }
@@ -266,6 +298,12 @@ export function formatReportAsText(report: MedicalReportSummary): string {
   lines.push(`- Jours avec douleurs digestives : ${report.digestiveDays} (moyenne ${report.avgDigestive}/5)`)
   lines.push(`- Jours avec douleurs articulaires : ${report.jointDays} (moyenne ${report.avgJoint}/5)`)
   lines.push(`- Jours avec fatigue : ${report.fatigueDays} (moyenne ${report.avgFatigue}/5)`)
+  lines.push(`- Jours avec migraines : ${report.migraineDays} (moyenne ${report.avgMigraine}/5)`)
+  if (report.virusDays > 0 || report.antibioticDays > 0) {
+    lines.push(
+      `- Infections / Traitements annexes : ${report.virusDays} j Virus/Rhume, ${report.antibioticDays} j Antibiotiques`,
+    )
+  }
   if (report.totalLoggedDays > 0) {
     lines.push(
       `- Transit : moyenne ${report.avgStoolCount} selles/j (${report.liquidStoolDays} j liquides, ${report.nocturnalStoolDays} j nocturnes, ${report.bloodStoolDays} j avec sang)`,
@@ -280,6 +318,11 @@ export function formatReportAsText(report: MedicalReportSummary): string {
       const cycleNote = p.isEndOfCycle ? ' [Fin de cycle avant injection]' : ''
       lines.push(`  • ${formatShortDateFr(p.date)} : ${p.details.join(', ')}${cycleNote}`)
     }
+  }
+  if (report.topSuspectedFoods.length > 0) {
+    lines.push(
+      `- Aliments suspectés lors de douleurs : ${report.topSuspectedFoods.map((f) => `${f.food} (${f.count}x)`).join(', ')}`,
+    )
   }
   if (report.topTags.length > 0) {
     lines.push(

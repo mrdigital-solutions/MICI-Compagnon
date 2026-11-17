@@ -1,8 +1,9 @@
-import { Check, Droplets, Flame, Minus, Plus, Thermometer, X } from 'lucide-react'
+import { Check, Droplets, Flame, Minus, Plus, Thermometer, Utensils, X } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { db, upsertDailyEntry } from '../../db/database'
 import {
   QUICK_TAGS,
+  SUSPECTED_FOOD_PRESETS,
   type DailyEntry,
   type MoodLevel,
   type SleepQuality,
@@ -62,6 +63,7 @@ export function DailyJournalForm({
   const [digestivePain, setDigestivePain] = useState(0)
   const [jointPain, setJointPain] = useState(0)
   const [fatigue, setFatigue] = useState(0)
+  const [migraine, setMigraine] = useState(0)
   const [feverOrInfection, setFeverOrInfection] = useState(false)
   const [stoolCount, setStoolCount] = useState<number>(1)
   const [stoolConsistency, setStoolConsistency] = useState<StoolConsistency>('normale')
@@ -70,6 +72,8 @@ export function DailyJournalForm({
   const [mood, setMood] = useState<MoodLevel | undefined>(undefined)
   const [sleepQuality, setSleepQuality] = useState<SleepQuality | undefined>(undefined)
   const [waterGlasses, setWaterGlasses] = useState<number>(4)
+  const [suspectedFoods, setSuspectedFoods] = useState<string[]>([])
+  const [customFood, setCustomFood] = useState('')
   const [tags, setTags] = useState<string[]>([])
   const [customTag, setCustomTag] = useState('')
   const [notes, setNotes] = useState('')
@@ -84,6 +88,7 @@ export function DailyJournalForm({
         setDigestivePain(entry.digestivePain)
         setJointPain(entry.jointPain)
         setFatigue(entry.fatigue)
+        setMigraine(entry.migraine ?? 0)
         setFeverOrInfection(entry.feverOrInfection)
         setStoolCount(entry.stoolCount ?? 1)
         setStoolConsistency(entry.stoolConsistency ?? 'normale')
@@ -92,12 +97,14 @@ export function DailyJournalForm({
         setMood(entry.mood)
         setSleepQuality(entry.sleepQuality)
         setWaterGlasses(entry.waterGlasses ?? 4)
+        setSuspectedFoods(entry.suspectedFoods ?? [])
         setTags(entry.tags ?? [])
         setNotes(entry.notes ?? '')
       } else {
         setDigestivePain(0)
         setJointPain(0)
         setFatigue(0)
+        setMigraine(0)
         setFeverOrInfection(false)
         setStoolCount(1)
         setStoolConsistency('normale')
@@ -106,6 +113,7 @@ export function DailyJournalForm({
         setMood(undefined)
         setSleepQuality(undefined)
         setWaterGlasses(4)
+        setSuspectedFoods([])
         setTags([])
         setNotes('')
       }
@@ -128,6 +136,21 @@ export function DailyJournalForm({
     setCustomTag('')
   }
 
+  function toggleFood(food: string) {
+    setSuspectedFoods((prev) =>
+      prev.includes(food) ? prev.filter((f) => f !== food) : [...prev, food],
+    )
+  }
+
+  function handleAddCustomFood() {
+    const trimmed = customFood.trim()
+    if (!trimmed) return
+    if (!suspectedFoods.includes(trimmed)) {
+      setSuspectedFoods((prev) => [...prev, trimmed])
+    }
+    setCustomFood('')
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setSaving(true)
@@ -137,6 +160,7 @@ export function DailyJournalForm({
         digestivePain,
         jointPain,
         fatigue,
+        migraine,
         feverOrInfection,
         stoolCount,
         stoolConsistency,
@@ -145,6 +169,7 @@ export function DailyJournalForm({
         mood,
         sleepQuality,
         waterGlasses,
+        suspectedFoods,
         tags,
         notes: notes.trim(),
       })
@@ -158,6 +183,7 @@ export function DailyJournalForm({
   }
 
   const allDisplayTags = Array.from(new Set([...QUICK_TAGS, ...tags]))
+  const allDisplayFoods = Array.from(new Set([...SUSPECTED_FOOD_PRESETS, ...suspectedFoods]))
 
   return (
     <form onSubmit={handleSubmit} className="space-y-5">
@@ -178,6 +204,11 @@ export function DailyJournalForm({
             label: 'Fatigue / état général',
             value: fatigue,
             setter: setFatigue,
+          },
+          {
+            label: 'Migraines / maux de tête',
+            value: migraine,
+            setter: setMigraine,
           },
         ].map((item) => (
           <div key={item.label} className="space-y-2">
@@ -404,6 +435,58 @@ export function DailyJournalForm({
               </button>
             </div>
           </div>
+        </div>
+      </div>
+
+      {/* Aliments suspectés */}
+      <div className="p-3.5 rounded-2xl bg-amber-50/60 dark:bg-slate-800/50 border border-amber-200/60 dark:border-slate-700/60 space-y-2.5">
+        <div className="flex items-center gap-1.5">
+          <Utensils className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+          <span className="text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-slate-300">
+            Aliments suspectés (si douleur)
+          </span>
+        </div>
+        <div className="flex flex-wrap gap-1.5">
+          {allDisplayFoods.map((food) => {
+            const active = suspectedFoods.includes(food)
+            return (
+              <button
+                key={food}
+                type="button"
+                onClick={() => toggleFood(food)}
+                className={`px-2.5 py-1 rounded-full text-xs font-medium border transition-colors ${
+                  active
+                    ? 'bg-amber-500 text-white border-amber-500'
+                    : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300'
+                }`}
+              >
+                {food}
+              </button>
+            )
+          })}
+        </div>
+        <div className="flex gap-2">
+          <input
+            type="text"
+            value={customFood}
+            onChange={(e) => setCustomFood(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault()
+                handleAddCustomFood()
+              }
+            }}
+            placeholder="Autre aliment suspecté (ex: Oignon, Chocolat)..."
+            className="flex-1 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs text-slate-900 dark:text-white"
+          />
+          <button
+            type="button"
+            onClick={handleAddCustomFood}
+            className="px-3 py-1.5 rounded-xl bg-amber-500/20 text-amber-800 dark:text-amber-300 hover:bg-amber-500/30"
+            aria-label="Ajouter l'aliment"
+          >
+            <Plus className="w-4 h-4" />
+          </button>
         </div>
       </div>
 

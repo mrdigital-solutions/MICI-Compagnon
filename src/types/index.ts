@@ -41,6 +41,7 @@ export interface DailyEntry {
   digestivePain: number // 0 to 5
   jointPain: number // 0 to 5
   fatigue: number // 0 to 5
+  migraine?: number // 0 to 5
   feverOrInfection: boolean
   stoolCount?: number
   stoolConsistency?: StoolConsistency
@@ -49,6 +50,7 @@ export interface DailyEntry {
   mood?: MoodLevel
   sleepQuality?: SleepQuality
   waterGlasses?: number
+  suspectedFoods?: string[]
   tags: string[]
   notes: string
   updatedAt: string
@@ -59,8 +61,21 @@ export const QUICK_TAGS = [
   'Stress',
   'Manque de sommeil',
   'Fin de dose',
+  'Virus / Rhume',
+  'Antibiotiques',
   'Hydratation faible',
   'Activité physique',
+] as const
+
+export const SUSPECTED_FOOD_PRESETS = [
+  'Lactose / Lait',
+  'Crudités / Fibres',
+  'Épicé',
+  'Café',
+  'Gras / Frit',
+  'Sucre',
+  'Alcool',
+  'Gluten / Blé',
 ] as const
 
 export interface LabResult {

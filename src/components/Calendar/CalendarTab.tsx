@@ -38,7 +38,12 @@ interface CalendarTabProps {
 const WEEKDAYS = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim']
 
 function getSymptomDotClass(entry: DailyEntry): string {
-  const maxScore = Math.max(entry.digestivePain, entry.jointPain, entry.fatigue)
+  const maxScore = Math.max(
+    entry.digestivePain,
+    entry.jointPain,
+    entry.fatigue,
+    entry.migraine ?? 0,
+  )
   if (entry.feverOrInfection || maxScore >= 4) return 'bg-rose-500'
   if (maxScore === 3) return 'bg-orange-500'
   if (maxScore >= 1) return 'bg-amber-400'
@@ -93,7 +98,12 @@ export function CalendarTab({ settings, onSelectDay }: CalendarTabProps) {
     const monthPrefix = `${viewYear}-${String(viewMonth + 1).padStart(2, '0')}`
     return (dailyEntries ?? []).filter((e) => {
       if (!e.date.startsWith(monthPrefix)) return false
-      const maxScore = Math.max(e.digestivePain, e.jointPain, e.fatigue)
+      const maxScore = Math.max(
+        e.digestivePain,
+        e.jointPain,
+        e.fatigue,
+        e.migraine ?? 0,
+      )
       return maxScore <= 1 && !e.feverOrInfection
     }).length
   }, [dailyEntries, viewYear, viewMonth])

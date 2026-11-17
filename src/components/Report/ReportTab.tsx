@@ -255,7 +255,7 @@ export function ReportTab() {
             )}
           </div>
 
-          <div className="grid grid-cols-3 gap-2 text-center">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center">
             <div className="p-2.5 rounded-2xl bg-slate-50/90 dark:bg-slate-800/60">
               <p className="text-[11px] text-slate-500">Digestif</p>
               <p className="text-lg font-extrabold text-slate-900 dark:text-white">
@@ -277,7 +277,29 @@ export function ReportTab() {
               </p>
               <p className="text-[10px] text-slate-400">moy {report.avgFatigue}/5</p>
             </div>
+            <div className="p-2.5 rounded-2xl bg-slate-50/90 dark:bg-slate-800/60">
+              <p className="text-[11px] text-slate-500">Migraines</p>
+              <p className="text-lg font-extrabold text-slate-900 dark:text-white">
+                {report.migraineDays} j
+              </p>
+              <p className="text-[10px] text-slate-400">moy {report.avgMigraine}/5</p>
+            </div>
           </div>
+
+          {(report.virusDays > 0 || report.antibioticDays > 0) && (
+            <div className="flex flex-wrap gap-2 text-xs">
+              {report.virusDays > 0 && (
+                <span className="px-2.5 py-1 rounded-full font-semibold bg-sky-500/15 text-sky-700 dark:text-sky-300">
+                  🦠 {report.virusDays} j Virus / Rhume
+                </span>
+              )}
+              {report.antibioticDays > 0 && (
+                <span className="px-2.5 py-1 rounded-full font-semibold bg-amber-500/15 text-amber-800 dark:text-amber-300">
+                  💊 {report.antibioticDays} j Antibiotiques
+                </span>
+              )}
+            </div>
+          )}
 
           {report.totalLoggedDays > 0 && (
             <div className="grid grid-cols-4 gap-2 text-center p-2.5 rounded-2xl bg-amber-50/60 dark:bg-slate-800/50 border border-amber-100 dark:border-slate-700/60">
@@ -339,6 +361,24 @@ export function ReportTab() {
                       </span>
                     )}
                   </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {report.topSuspectedFoods.length > 0 && (
+            <div className="space-y-1 pt-1">
+              <p className="text-[11px] font-bold uppercase tracking-wider text-amber-700 dark:text-amber-300">
+                Aliments suspectés
+              </p>
+              <div className="flex flex-wrap gap-1.5">
+                {report.topSuspectedFoods.map((f) => (
+                  <span
+                    key={f.food}
+                    className="text-[11px] font-semibold px-2.5 py-1 rounded-full bg-amber-500/15 text-amber-800 dark:text-amber-300"
+                  >
+                    {f.food} ({f.count}x)
+                  </span>
                 ))}
               </div>
             </div>

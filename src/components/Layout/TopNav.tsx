@@ -25,7 +25,7 @@ export function TopNav({ activeTab, onChange }: TopNavProps) {
               key={tab.id}
               type="button"
               onClick={() => onChange(tab.id)}
-              className={`flex flex-col sm:flex-row items-center justify-center gap-0.5 sm:gap-1.5 py-1.5 sm:py-2 px-1 sm:px-3 rounded-xl text-[10.5px] sm:text-xs font-semibold transition-all ${
+              className={`flex flex-col sm:flex-row items-center justify-center gap-0.5 sm:gap-1.5 py-1.5 sm:py-2 px-1 sm:px-3 rounded-xl text-[11px] sm:text-[13px] font-semibold transition-all ${
                 isActive
                   ? 'bg-white dark:bg-slate-900 text-teal-700 dark:text-teal-300 shadow-xs'
                   : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'

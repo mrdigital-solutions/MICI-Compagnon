@@ -163,7 +163,7 @@ export function LabsTab() {
                     {meta.unit}
                   </span>
                 </div>
-                <p className="text-[10px] text-slate-400 mt-1">
+                <p className="text-[11px] text-slate-400 mt-1">
                   {markerResult ? `Dernier : ${formatShortDateFr(markerResult.date)}` : 'Aucune donnée'}
                 </p>
               </button>
@@ -273,7 +273,7 @@ export function LabsTab() {
           </p>
         ) : (
           <div className="overflow-x-auto -mx-2 px-2">
-            <table className="w-full text-left border-collapse text-xs">
+            <table className="w-full text-left border-collapse text-[13px]">
               <thead>
                 <tr className="border-b border-slate-200/80 dark:border-slate-800 text-[11px] uppercase tracking-wider text-slate-400">
                   <th className="py-2.5 pr-3 font-semibold">Date</th>

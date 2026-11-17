@@ -172,7 +172,7 @@ export function CalendarTab({ settings, onSelectDay }: CalendarTabProps) {
               <BellRing className="w-5 h-5" />
             )}
           </div>
-          <div className="text-xs leading-relaxed">
+          <div className="text-[13px] leading-relaxed">
             <p className="font-bold">
               {daysUntilNext < 0
                 ? `Injection en retard de ${Math.abs(daysUntilNext)} jour${Math.abs(daysUntilNext) > 1 ? 's' : ''}`
@@ -274,7 +274,7 @@ export function CalendarTab({ settings, onSelectDay }: CalendarTabProps) {
               </button>
 
               {/* Pen Stock tracker */}
-              <div className="mt-3 pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between gap-2 text-xs">
+              <div className="mt-3 pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between gap-2 text-[13px]">
                 <div className="flex items-center gap-2">
                   <Package className="w-4 h-4 text-slate-400" />
                   <span className="text-slate-600 dark:text-slate-300">
@@ -385,7 +385,7 @@ export function CalendarTab({ settings, onSelectDay }: CalendarTabProps) {
                 {recentHistory.map((inj) => (
                   <div
                     key={inj.id}
-                    className="flex items-center justify-between gap-3 p-2.5 rounded-2xl bg-slate-50/80 dark:bg-slate-800/50 text-xs"
+                    className="flex items-center justify-between gap-3 p-3 rounded-2xl bg-slate-50/80 dark:bg-slate-800/50 text-sm"
                   >
                     <div className="flex items-center gap-2.5 min-w-0">
                       <span
@@ -401,14 +401,14 @@ export function CalendarTab({ settings, onSelectDay }: CalendarTabProps) {
                                 inj.shiftDays && inj.shiftDays > 0 ? `+${inj.shiftDays}` : inj.shiftDays
                               } j)`}
                         </p>
-                        <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
+                        <p className="text-xs text-slate-500 dark:text-slate-400 truncate">
                           {inj.status === 'done'
                             ? getSiteLabel(inj.site)
                             : inj.shiftReason || 'Report'}
                         </p>
                       </div>
                     </div>
-                    <span className="text-[11px] font-medium text-slate-400 shrink-0">
+                    <span className="text-xs font-bold text-slate-500 dark:text-slate-400 shrink-0">
                       {inj.doseMg} mg
                     </span>
                   </div>
@@ -536,7 +536,7 @@ export function CalendarTab({ settings, onSelectDay }: CalendarTabProps) {
           </div>
 
           {/* Legend */}
-          <div className="mt-4 pt-3.5 border-t border-slate-100 dark:border-slate-800 flex flex-wrap gap-x-4 gap-y-1.5 text-[11px] text-slate-500 dark:text-slate-400">
+          <div className="mt-4 pt-3.5 border-t border-slate-100 dark:border-slate-800 flex flex-wrap gap-x-4 gap-y-1.5 text-xs text-slate-500 dark:text-slate-400">
             <span className="inline-flex items-center gap-1.5">
               <span className="w-2.5 h-2.5 rounded-full bg-teal-500" /> Injection prévue
             </span>

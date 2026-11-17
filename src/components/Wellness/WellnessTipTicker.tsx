@@ -198,10 +198,10 @@ export function WellnessTipTicker() {
       </div>
 
       <div className="flex items-center justify-between pt-0.5">
-        <span className="text-[10px] font-medium text-slate-400">
+        <span className="text-[11px] font-medium text-slate-400">
           Conseil {index + 1} / {WELLNESS_TIPS.length}
         </span>
-        <span className="text-[10px] text-slate-400">
+        <span className="text-[11px] text-slate-400">
           Repère bien-être · non médical
         </span>
       </div>

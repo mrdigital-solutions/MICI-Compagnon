@@ -204,11 +204,11 @@ export function ReportTab() {
           </div>
 
           {report.doneInjections.length > 0 && (
-            <ul className="space-y-1.5 text-xs">
+            <ul className="space-y-1.5 text-[13px]">
               {report.doneInjections.map((inj) => (
                 <li
                   key={inj.id}
-                  className="flex items-center justify-between px-3 py-2 rounded-xl bg-slate-50/80 dark:bg-slate-800/50"
+                  className="flex items-center justify-between px-3 py-2.5 rounded-xl bg-slate-50/80 dark:bg-slate-800/50"
                 >
                   <span className="font-semibold text-slate-800 dark:text-slate-100">
                     {formatShortDateFr(inj.actualDate ?? inj.scheduledDate)}
@@ -483,7 +483,7 @@ export function ReportTab() {
         <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
           Aperçu du texte prêt à envoyer par mail
         </h3>
-        <pre className="whitespace-pre-wrap font-sans text-xs leading-relaxed text-slate-700 dark:text-slate-300 bg-slate-50/90 dark:bg-slate-800/60 p-4 rounded-2xl border border-slate-200/70 dark:border-slate-700/60">
+        <pre className="whitespace-pre-wrap font-sans text-[13px] leading-relaxed text-slate-700 dark:text-slate-300 bg-slate-50/90 dark:bg-slate-800/60 p-4 rounded-2xl border border-slate-200/70 dark:border-slate-700/60">
           {plainText}
         </pre>
       </section>

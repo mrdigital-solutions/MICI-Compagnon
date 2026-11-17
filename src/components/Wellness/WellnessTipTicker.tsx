@@ -183,7 +183,7 @@ export function WellnessTipTicker() {
             </div>
           </div>
 
-          <p className="text-xs leading-relaxed text-slate-700 dark:text-slate-200">
+          <p className="text-[13px] sm:text-sm leading-relaxed text-slate-700 dark:text-slate-200">
             {tip.text}
           </p>
         </div>

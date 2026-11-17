@@ -325,14 +325,14 @@ export function CalendarTab({ settings, onSelectDay }: CalendarTabProps) {
                 Prochains rendez-vous
               </h3>
               {settings.nextDoctorAppointment && (
-                <div className="flex items-center justify-between gap-2 p-2.5 rounded-2xl bg-slate-50/80 dark:bg-slate-800/50 text-xs">
-                  <div className="flex items-center gap-2">
+                <div className="flex items-center justify-between gap-2 p-3 rounded-2xl bg-slate-50/80 dark:bg-slate-800/50 text-sm">
+                  <div className="flex items-center gap-2.5">
                     <Stethoscope className="w-4 h-4 text-teal-600 dark:text-teal-400 shrink-0" />
                     <div>
                       <p className="font-semibold text-slate-800 dark:text-slate-100">
                         Gastro-entérologue
                       </p>
-                      <p className="text-[11px] text-slate-500 capitalize">
+                      <p className="text-xs text-slate-500 capitalize">
                         {formatDateFr(settings.nextDoctorAppointment, {
                           day: 'numeric',
                           month: 'long',
@@ -349,14 +349,14 @@ export function CalendarTab({ settings, onSelectDay }: CalendarTabProps) {
                 </div>
               )}
               {settings.nextLabDate && (
-                <div className="flex items-center justify-between gap-2 p-2.5 rounded-2xl bg-slate-50/80 dark:bg-slate-800/50 text-xs">
-                  <div className="flex items-center gap-2">
+                <div className="flex items-center justify-between gap-2 p-3 rounded-2xl bg-slate-50/80 dark:bg-slate-800/50 text-sm">
+                  <div className="flex items-center gap-2.5">
                     <FlaskConical className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />
                     <div>
                       <p className="font-semibold text-slate-800 dark:text-slate-100">
                         Prise de sang / Bilan
                       </p>
-                      <p className="text-[11px] text-slate-500 capitalize">
+                      <p className="text-xs text-slate-500 capitalize">
                         {formatDateFr(settings.nextLabDate, {
                           day: 'numeric',
                           month: 'long',
@@ -432,7 +432,7 @@ export function CalendarTab({ settings, onSelectDay }: CalendarTabProps) {
                   </span>
                 )}
               </div>
-              <p className="text-[11px] text-slate-500 dark:text-slate-400">
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                 Touchez un jour pour saisir vos symptômes
               </p>
             </div>
@@ -499,7 +499,7 @@ export function CalendarTab({ settings, onSelectDay }: CalendarTabProps) {
                       : 'text-slate-400 dark:text-slate-600 opacity-45'
                   }`}
                 >
-                  <span className="text-xs leading-none">{cell.dayNumber}</span>
+                  <span className="text-[13px] sm:text-sm leading-none">{cell.dayNumber}</span>
 
                   <div className="flex items-center justify-center gap-1 min-h-[12px]">
                     {hasDone && (

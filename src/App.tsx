@@ -11,6 +11,7 @@ import { TopNav } from './components/Layout/TopNav'
 import { ReportTab } from './components/Report/ReportTab'
 import { SettingsModal } from './components/Settings/SettingsModal'
 import { BreathingModal } from './components/Wellness/BreathingModal'
+import { SupportBetaBubble } from './components/Wellness/SupportBetaBubble'
 import { DEFAULT_SETTINGS, db, ensureDefaultSettings } from './db/database'
 import type { AppTab } from './types'
 import { triggerLocalReminderIfNeeded } from './utils/notifications'
@@ -237,6 +238,8 @@ export function App() {
       {breathingOpen && (
         <BreathingModal onClose={() => setBreathingOpen(false)} />
       )}
+
+      <SupportBetaBubble visible={Boolean(settings?.onboardingCompleted)} />
 
       {settings && !settings.onboardingCompleted && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 backdrop-blur-sm p-4 overflow-y-auto">

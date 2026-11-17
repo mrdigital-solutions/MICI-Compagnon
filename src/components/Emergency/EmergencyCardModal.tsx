@@ -1,4 +1,4 @@
-import { Edit3, Phone, ShieldAlert, X } from 'lucide-react'
+import { Edit3, HeartHandshake, Phone, ShieldAlert, Stethoscope, User, X } from 'lucide-react'
 import { useState } from 'react'
 import { db } from '../../db/database'
 import type { AppSettings } from '../../types'
@@ -8,10 +8,23 @@ interface EmergencyCardModalProps {
   onClose: () => void
 }
 
+const BLOOD_GROUPS = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-']
+
 export function EmergencyCardModal({ settings, onClose }: EmergencyCardModalProps) {
+  const [view, setView] = useState<'toilet' | 'medical'>('toilet')
   const [editing, setEditing] = useState(false)
+
+  const [patientName, setPatientName] = useState(settings.patientName ?? '')
+  const [bloodGroup, setBloodGroup] = useState(settings.bloodGroup ?? '')
+  const [allergies, setAllergies] = useState(settings.allergies ?? '')
   const [doctorName, setDoctorName] = useState(settings.doctorName ?? '')
   const [doctorPhone, setDoctorPhone] = useState(settings.doctorPhone ?? '')
+  const [emergencyContactName, setEmergencyContactName] = useState(
+    settings.emergencyContactName ?? '',
+  )
+  const [emergencyContactPhone, setEmergencyContactPhone] = useState(
+    settings.emergencyContactPhone ?? '',
+  )
   const [emergencyNotes, setEmergencyNotes] = useState(settings.emergencyNotes ?? '')
   const [saving, setSaving] = useState(false)
 
@@ -20,9 +33,14 @@ export function EmergencyCardModal({ settings, onClose }: EmergencyCardModalProp
     setSaving(true)
     try {
       await db.settings.update('default', {
-        doctorName: doctorName.trim(),
-        doctorPhone: doctorPhone.trim(),
-        emergencyNotes: emergencyNotes.trim(),
+        patientName: patientName.trim() || undefined,
+        bloodGroup: bloodGroup || undefined,
+        allergies: allergies.trim() || undefined,
+        doctorName: doctorName.trim() || undefined,
+        doctorPhone: doctorPhone.trim() || undefined,
+        emergencyContactName: emergencyContactName.trim() || undefined,
+        emergencyContactPhone: emergencyContactPhone.trim() || undefined,
+        emergencyNotes: emergencyNotes.trim() || undefined,
       })
       setEditing(false)
     } finally {
@@ -50,51 +68,143 @@ export function EmergencyCardModal({ settings, onClose }: EmergencyCardModalProp
           </button>
         </div>
 
-        <div className="p-5 space-y-4 overflow-y-auto">
-          {/* Urgent Toilet Access Card */}
-          <div className="p-4 rounded-2xl bg-rose-50 dark:bg-rose-950/40 border-2 border-rose-300 dark:border-rose-800/70 text-center space-y-2">
-            <p className="text-xs font-extrabold uppercase tracking-wider text-rose-600 dark:text-rose-400">
-              Besoin urgent · Maladie chronique (MICI)
-            </p>
-            <p className="text-sm font-bold text-slate-900 dark:text-white leading-snug">
-              Je suis atteint(e) d'une maladie inflammatoire chronique de l'intestin (Crohn / RCH).
-              Merci de me laisser accéder aux toilettes en urgence.
-            </p>
+        {/* Switcher: Accès Toilettes (discret) vs Fiche Secours */}
+        {!editing && (
+          <div className="px-5 pt-4 shrink-0">
+            <div className="grid grid-cols-2 gap-1.5 p-1 rounded-2xl bg-slate-100 dark:bg-slate-800">
+              <button
+                type="button"
+                onClick={() => setView('toilet')}
+                className={`py-2 px-3 rounded-xl text-xs font-bold transition-all ${
+                  view === 'toilet'
+                    ? 'bg-white dark:bg-slate-900 text-rose-600 dark:text-rose-400 shadow-xs'
+                    : 'text-slate-600 dark:text-slate-400'
+                }`}
+              >
+                Carte Toilettes
+              </button>
+              <button
+                type="button"
+                onClick={() => setView('medical')}
+                className={`py-2 px-3 rounded-xl text-xs font-bold transition-all ${
+                  view === 'medical'
+                    ? 'bg-white dark:bg-slate-900 text-rose-600 dark:text-rose-400 shadow-xs'
+                    : 'text-slate-600 dark:text-slate-400'
+                }`}
+              >
+                Fiche Secours
+              </button>
+            </div>
           </div>
+        )}
 
-          {/* Medical Info */}
-          {!editing ? (
+        <div className="p-5 space-y-4 overflow-y-auto">
+          {!editing && view === 'toilet' && (
+            <div className="space-y-4">
+              <div className="p-6 rounded-3xl bg-rose-50 dark:bg-rose-950/40 border-2 border-rose-300 dark:border-rose-800/70 text-center space-y-3">
+                <span className="inline-block px-3 py-1 rounded-full bg-rose-500 text-white text-[11px] font-extrabold uppercase tracking-wider">
+                  Urgence Médicale · MICI
+                </span>
+                <p className="text-lg font-extrabold text-slate-900 dark:text-white leading-snug">
+                  Je suis atteint(e) d'une maladie chronique de l'intestin (Crohn / RCH).
+                </p>
+                <p className="text-base font-bold text-rose-700 dark:text-rose-300">
+                  Merci de me laisser accéder aux toilettes en urgence.
+                </p>
+              </div>
+              <p className="text-[11px] text-center text-slate-400">
+                Cet écran masque vos données médicales privées pour pouvoir le montrer directement.
+              </p>
+            </div>
+          )}
+
+          {!editing && view === 'medical' && (
             <div className="space-y-3">
-              <div className="p-3.5 rounded-2xl bg-white dark:bg-slate-800/70 border border-slate-200/80 dark:border-slate-700 space-y-2 text-xs">
-                <div className="flex items-center justify-between">
-                  <span className="text-slate-500 dark:text-slate-400">Traitement en cours</span>
-                  <strong className="text-slate-900 dark:text-white">
-                    {settings.treatmentName}
-                  </strong>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-slate-500 dark:text-slate-400">Gastro-entérologue</span>
-                  <strong className="text-slate-900 dark:text-white">
-                    {settings.doctorName || 'Non renseigné'}
-                  </strong>
-                </div>
-                {settings.doctorPhone && (
-                  <div className="flex items-center justify-between">
-                    <span className="text-slate-500 dark:text-slate-400">Téléphone</span>
-                    <a
-                      href={`tel:${settings.doctorPhone}`}
-                      className="inline-flex items-center gap-1.5 font-bold text-teal-600 dark:text-teal-400"
-                    >
-                      <Phone className="w-3.5 h-3.5" />
-                      {settings.doctorPhone}
-                    </a>
+              <div className="p-4 rounded-2xl bg-white dark:bg-slate-800/70 border border-slate-200/80 dark:border-slate-700 space-y-3 text-sm">
+                {(settings.patientName || settings.bloodGroup) && (
+                  <div className="flex items-center justify-between pb-2.5 border-b border-slate-100 dark:border-slate-700">
+                    <div className="flex items-center gap-2">
+                      <User className="w-4 h-4 text-slate-400" />
+                      <strong className="text-slate-900 dark:text-white">
+                        {settings.patientName || 'Patient'}
+                      </strong>
+                    </div>
+                    {settings.bloodGroup && (
+                      <span className="px-2.5 py-0.5 rounded-full bg-rose-500/15 text-rose-700 dark:text-rose-300 text-xs font-extrabold">
+                        Groupe {settings.bloodGroup}
+                      </span>
+                    )}
                   </div>
                 )}
+
+                <div className="flex items-start justify-between gap-2">
+                  <span className="text-xs text-slate-500 dark:text-slate-400">
+                    Traitement en cours
+                  </span>
+                  <div className="text-right">
+                    <strong className="block text-slate-900 dark:text-white">
+                      {settings.treatmentName}
+                    </strong>
+                    <span className="text-[11px] font-semibold text-amber-700 dark:text-amber-300">
+                      Biothérapie / Immunosuppresseur
+                    </span>
+                  </div>
+                </div>
+
+                <div className="flex items-start justify-between gap-2 pt-2 border-t border-slate-100 dark:border-slate-700">
+                  <span className="text-xs text-slate-500 dark:text-slate-400">Allergies</span>
+                  <strong className="text-right text-slate-900 dark:text-white">
+                    {settings.allergies || 'Aucune signalée'}
+                  </strong>
+                </div>
+
+                <div className="flex items-center justify-between gap-2 pt-2 border-t border-slate-100 dark:border-slate-700">
+                  <div className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400">
+                    <Stethoscope className="w-3.5 h-3.5" />
+                    <span>Gastro</span>
+                  </div>
+                  <div className="text-right">
+                    <strong className="block text-slate-900 dark:text-white">
+                      {settings.doctorName || 'Non renseigné'}
+                    </strong>
+                    {settings.doctorPhone && (
+                      <a
+                        href={`tel:${settings.doctorPhone}`}
+                        className="inline-flex items-center gap-1 text-xs font-bold text-teal-600 dark:text-teal-400"
+                      >
+                        <Phone className="w-3 h-3" />
+                        {settings.doctorPhone}
+                      </a>
+                    )}
+                  </div>
+                </div>
+
+                {(settings.emergencyContactName || settings.emergencyContactPhone) && (
+                  <div className="flex items-center justify-between gap-2 pt-2 border-t border-slate-100 dark:border-slate-700">
+                    <div className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400">
+                      <HeartHandshake className="w-3.5 h-3.5 text-rose-500" />
+                      <span>Proche à prévenir</span>
+                    </div>
+                    <div className="text-right">
+                      <strong className="block text-slate-900 dark:text-white">
+                        {settings.emergencyContactName || 'Contact'}
+                      </strong>
+                      {settings.emergencyContactPhone && (
+                        <a
+                          href={`tel:${settings.emergencyContactPhone}`}
+                          className="inline-flex items-center gap-1 text-xs font-bold text-rose-600 dark:text-rose-400"
+                        >
+                          <Phone className="w-3 h-3" />
+                          {settings.emergencyContactPhone}
+                        </a>
+                      )}
+                    </div>
+                  </div>
+                )}
+
                 {settings.emergencyNotes && (
-                  <div className="pt-2 border-t border-slate-100 dark:border-slate-700">
-                    <p className="text-slate-500 dark:text-slate-400 mb-0.5">
-                      Allergies / Groupe sanguin / Notes :
-                    </p>
+                  <div className="pt-2 border-t border-slate-100 dark:border-slate-700 text-xs">
+                    <p className="text-slate-500 dark:text-slate-400 mb-0.5">Autres notes :</p>
                     <p className="font-semibold text-slate-800 dark:text-slate-100">
                       {settings.emergencyNotes}
                     </p>
@@ -111,44 +221,122 @@ export function EmergencyCardModal({ settings, onClose }: EmergencyCardModalProp
                 Modifier mes informations médicales
               </button>
             </div>
-          ) : (
+          )}
+
+          {editing && (
             <form onSubmit={handleSave} className="space-y-3">
+              <div className="grid grid-cols-2 gap-2.5">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">
+                    Nom & Prénom
+                  </label>
+                  <input
+                    type="text"
+                    value={patientName}
+                    onChange={(e) => setPatientName(e.target.value)}
+                    placeholder="Ex: Mohamed R."
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">
+                    Groupe sanguin
+                  </label>
+                  <select
+                    value={bloodGroup}
+                    onChange={(e) => setBloodGroup(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm"
+                  >
+                    <option value="">Non renseigné</option>
+                    {BLOOD_GROUPS.map((bg) => (
+                      <option key={bg} value={bg}>
+                        {bg}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
               <div>
                 <label className="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">
-                  Nom du gastro-entérologue
+                  Allergies médicamenteuses / autres
                 </label>
                 <input
                   type="text"
-                  value={doctorName}
-                  onChange={(e) => setDoctorName(e.target.value)}
-                  placeholder="Ex: Dr Nadia Bouarioua"
-                  className="w-full px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm"
+                  value={allergies}
+                  onChange={(e) => setAllergies(e.target.value)}
+                  placeholder="Ex: Pénicilline, aucune..."
+                  className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm"
                 />
               </div>
-              <div>
-                <label className="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">
-                  Téléphone du cabinet / service
-                </label>
-                <input
-                  type="tel"
-                  value={doctorPhone}
-                  onChange={(e) => setDoctorPhone(e.target.value)}
-                  placeholder="Ex: 04 72 82 67 16"
-                  className="w-full px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm"
-                />
+
+              <div className="grid grid-cols-2 gap-2.5">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">
+                    Gastro-entérologue
+                  </label>
+                  <input
+                    type="text"
+                    value={doctorName}
+                    onChange={(e) => setDoctorName(e.target.value)}
+                    placeholder="Dr ..."
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">
+                    Tél. Gastro
+                  </label>
+                  <input
+                    type="tel"
+                    value={doctorPhone}
+                    onChange={(e) => setDoctorPhone(e.target.value)}
+                    placeholder="04 72..."
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm"
+                  />
+                </div>
               </div>
+
+              <div className="grid grid-cols-2 gap-2.5">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">
+                    Proche à prévenir
+                  </label>
+                  <input
+                    type="text"
+                    value={emergencyContactName}
+                    onChange={(e) => setEmergencyContactName(e.target.value)}
+                    placeholder="Nom du proche"
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">
+                    Tél. proche
+                  </label>
+                  <input
+                    type="tel"
+                    value={emergencyContactPhone}
+                    onChange={(e) => setEmergencyContactPhone(e.target.value)}
+                    placeholder="06 ..."
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm"
+                  />
+                </div>
+              </div>
+
               <div>
                 <label className="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">
-                  Allergies, groupe sanguin, contact d'urgence
+                  Autres notes
                 </label>
                 <textarea
                   rows={2}
                   value={emergencyNotes}
                   onChange={(e) => setEmergencyNotes(e.target.value)}
-                  placeholder="Ex: Groupe A+, allergie pénicilline..."
-                  className="w-full px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm"
+                  placeholder="N° Sécu, hôpital de suivi..."
+                  className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm"
                 />
               </div>
+
               <div className="flex gap-2">
                 <button
                   type="button"

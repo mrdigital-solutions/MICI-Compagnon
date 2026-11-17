@@ -111,6 +111,11 @@ export interface AppSettings {
   nextLabDate?: string
   doctorName?: string
   doctorPhone?: string
+  patientName?: string
+  bloodGroup?: string
+  allergies?: string
+  emergencyContactName?: string
+  emergencyContactPhone?: string
   emergencyNotes?: string
 }
 

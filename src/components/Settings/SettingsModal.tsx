@@ -1,5 +1,15 @@
-import { Bell, Coffee, Download, ExternalLink, RefreshCw, Trash2, Upload, X } from 'lucide-react'
-import { useRef, useState } from 'react'
+import {
+  Bell,
+  Coffee,
+  Download,
+  ExternalLink,
+  RefreshCw,
+  Smartphone,
+  Trash2,
+  Upload,
+  X,
+} from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
 import { DONATION_URL } from '../../config/support'
 import {
   db,
@@ -12,6 +22,12 @@ import {
   isNotificationSupported,
   requestNotificationPermission,
 } from '../../utils/notifications'
+import {
+  canPromptPwaInstall,
+  isStandalonePwa,
+  promptPwaInstall,
+  subscribePwaInstall,
+} from '../../utils/pwaInstall'
 import { SetupScheduleModal } from '../Calendar/SetupScheduleModal'
 
 interface SettingsModalProps {

@@ -1,4 +1,4 @@
-import { HeartPulse, Moon, Settings, ShieldAlert, Sun, Wind } from 'lucide-react'
+import { Moon, Settings, ShieldAlert, Sun, Wind } from 'lucide-react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useEffect, useState } from 'react'
 import { CalendarTab } from './components/Calendar/CalendarTab'
@@ -60,9 +60,11 @@ export function App() {
         <div className="mx-auto max-w-5xl rounded-3xl bg-white/75 dark:bg-slate-900/80 backdrop-blur-xl border border-white/80 dark:border-slate-800 shadow-[0_8px_30px_rgb(0,0,0,0.04)] px-4 py-2.5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2.5">
-              <div className="w-9 h-9 rounded-2xl bg-gradient-to-br from-teal-500 to-emerald-500 flex items-center justify-center text-white shadow-sm shadow-teal-500/25">
-                <HeartPulse className="w-5 h-5" />
-              </div>
+              <img
+                src="./logo-round.png"
+                alt="MICI Compagnon"
+                className="w-10 h-10 rounded-full shadow-sm shrink-0"
+              />
               <div>
                 <h1 className="text-sm font-bold leading-tight text-slate-900 dark:text-white">
                   MICI Compagnon

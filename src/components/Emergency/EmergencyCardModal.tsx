@@ -341,7 +341,7 @@ export function EmergencyCardModal({ settings, onClose }: EmergencyCardModalProp
                     type="text"
                     value={patientName}
                     onChange={(e) => setPatientName(e.target.value)}
-                    placeholder="Ex: Mohamed R."
+                    placeholder="Prénom Nom"
                     className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm"
                   />
                 </div>

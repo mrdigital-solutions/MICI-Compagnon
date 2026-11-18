@@ -23,6 +23,11 @@ const ORAL_KEYWORDS = [
   'etrasimod',
 ]
 
+/** Vrai si le nom correspond exactement à un traitement de la liste. */
+export function isPresetTreatment(name: string): boolean {
+  return TREATMENT_PRESETS.some((p) => p.name === name)
+}
+
 /**
  * Indique si un traitement se prend par voie orale (comprimé / gélule).
  * Dans ce cas il n'y a ni rotation des sites d'injection ni stock de stylos.

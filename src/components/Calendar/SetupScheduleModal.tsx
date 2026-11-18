@@ -1,10 +1,14 @@
 import { CalendarCheck2 } from 'lucide-react'
 import { useState } from 'react'
-import { TREATMENT_PRESETS } from '../../config/support'
-import { initializeInjectionSchedule } from '../../db/database'
+import { db, initializeInjectionSchedule } from '../../db/database'
 import type { InjectionSite } from '../../types'
 import { getTodayKey } from '../../utils/dateUtils'
-import { isOralTreatment } from '../../utils/treatment'
+import { isOralTreatment, isPresetTreatment } from '../../utils/treatment'
+import {
+  SecondaryTreatmentFields,
+  type SecondaryTreatmentValue,
+} from '../Treatment/SecondaryTreatmentFields'
+import { TreatmentSelect } from '../Treatment/TreatmentSelect'
 import { InjectionSiteSelector } from './InjectionSiteSelector'
 
 interface SetupScheduleModalProps {
@@ -12,6 +16,11 @@ interface SetupScheduleModalProps {
   initialCycleDays?: number
   onDone: () => void
   onCancel?: () => void
+  /**
+   * Affiche le 2e traitement (combothérapie). Activé à la première ouverture ;
+   * désactivé pour « Replanifier », où les Paramètres le gèrent déjà.
+   */
+  includeSecondary?: boolean
 }
 
 export function SetupScheduleModal({
@@ -19,17 +28,36 @@ export function SetupScheduleModal({
   initialCycleDays = 14,
   onDone,
   onCancel,
+  includeSecondary = false,
 }: SetupScheduleModalProps) {
   const [treatmentName, setTreatmentName] = useState<string>(initialTreatmentName)
+  const [treatmentIsCustom, setTreatmentIsCustom] = useState(
+    () => !isPresetTreatment(initialTreatmentName),
+  )
   const [nextDate, setNextDate] = useState<string>(getTodayKey())
   const [cycleDays, setCycleDays] = useState<number>(initialCycleDays)
   const [lastSite, setLastSite] = useState<InjectionSite>('ventre_droite')
   const [saving, setSaving] = useState(false)
+  const [secondary, setSecondary] = useState<SecondaryTreatmentValue>({
+    name: '',
+    isCustom: false,
+    cycleDays: 7,
+    nextDate: '',
+  })
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setSaving(true)
     try {
+      // Enregistré en premier : générer le calendrier ferme la fenêtre de première ouverture
+      const secondaryName = secondary.name.trim()
+      if (includeSecondary && secondaryName) {
+        await db.settings.update('default', {
+          secondaryTreatmentName: secondaryName,
+          secondaryCycleDays: secondary.cycleDays,
+          secondaryNextDate: secondary.nextDate || getTodayKey(),
+        })
+      }
       await initializeInjectionSchedule({
         treatmentName,
         nextInjectionDate: nextDate,
@@ -60,37 +88,32 @@ export function SetupScheduleModal({
 
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
-          <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5">
-            Traitement & dosage
+          <label
+            htmlFor="setup-treatment"
+            className="block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1"
+          >
+            Traitement principal
           </label>
-          <div className="flex flex-wrap gap-1.5 mb-2">
-            {TREATMENT_PRESETS.map((preset) => (
-              <button
-                key={preset.name}
-                type="button"
-                onClick={() => {
-                  setTreatmentName(preset.name)
-                  setCycleDays(preset.cycleDays)
-                }}
-                className={`px-2.5 py-1 rounded-full text-[11px] font-semibold border transition-colors ${
-                  treatmentName === preset.name
-                    ? 'bg-teal-600 text-white border-teal-600'
-                    : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300'
-                }`}
-              >
-                {preset.name}
-              </button>
-            ))}
-          </div>
-          <input
-            type="text"
+          <TreatmentSelect
+            id="setup-treatment"
             value={treatmentName}
-            onChange={(e) => setTreatmentName(e.target.value)}
-            placeholder="Ex: Yuflima 80 mg, Humira 40 mg..."
-            className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-sm font-medium text-slate-900 dark:text-white"
+            isCustom={treatmentIsCustom}
+            onChange={({ name, isCustom, preset }) => {
+              setTreatmentName(name)
+              setTreatmentIsCustom(isCustom)
+              if (preset) setCycleDays(preset.cycleDays)
+            }}
             required
           />
         </div>
+
+        {includeSecondary && (
+          <SecondaryTreatmentFields
+            id="setup-secondary-treatment"
+            value={secondary}
+            onChange={setSecondary}
+          />
+        )}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
             <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5">
@@ -106,7 +129,7 @@ export function SetupScheduleModal({
           </div>
           <div>
             <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5">
-              Fréquence (jours)
+              Cycle principal (en jours)
             </label>
             <input
               type="number"

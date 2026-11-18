@@ -265,6 +265,7 @@ export function App() {
             <SetupScheduleModal
               initialTreatmentName={currentSettings.treatmentName}
               initialCycleDays={currentSettings.cycleDays}
+              includeSecondary
               onDone={() => {}}
             />
           </div>

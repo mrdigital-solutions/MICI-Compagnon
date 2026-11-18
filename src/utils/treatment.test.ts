@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { extractDoseMg, isOralTreatment } from './treatment'
+import { extractDoseMg, isOralTreatment, isPresetTreatment } from './treatment'
 
 describe('treatment', () => {
   it('extrait la dose du nom du traitement', () => {
@@ -21,5 +21,11 @@ describe('treatment', () => {
     expect(isOralTreatment('Humira 40 mg')).toBe(false)
     expect(isOralTreatment('Méthotrexate 15 mg')).toBe(false)
     expect(isOralTreatment(undefined)).toBe(false)
+  })
+
+  it('reconnaît les traitements de la liste', () => {
+    expect(isPresetTreatment('Humira 40 mg')).toBe(true)
+    expect(isPresetTreatment('Humira 40mg')).toBe(false)
+    expect(isPresetTreatment('')).toBe(false)
   })
 })

@@ -10,6 +10,7 @@ import {
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useRef, useState } from 'react'
 import { db } from '../../db/database'
+import type { PatientSex } from '../../types'
 import { formatDateFr, getTodayKey } from '../../utils/dateUtils'
 import {
   LAB_MARKERS,
@@ -18,6 +19,8 @@ import {
   type LabMarkerKey,
   type ParsedLabDraft,
 } from '../../utils/labParser'
+
+const SEX_PROMPT_DISMISSED_KEY = 'mici_sex_prompt_dismissed'
 
 interface ImportLabModalProps {
   initialMode?: 'import' | 'manual'
@@ -39,7 +42,30 @@ export function ImportLabModal({ initialMode = 'import', onClose }: ImportLabMod
   const [mergeConfirmedFor, setMergeConfirmedFor] = useState<string | null>(null)
   const [mergeWarning, setMergeWarning] = useState<string | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
-  const patientSex = useLiveQuery(() => db.settings.get('default'), [])?.patientSex
+  const settings = useLiveQuery(() => db.settings.get('default'), [])
+  const patientSex = settings?.patientSex
+  const [sexPromptDismissed, setSexPromptDismissed] = useState(() => {
+    try {
+      return localStorage.getItem(SEX_PROMPT_DISMISSED_KEY) === '1'
+    } catch {
+      return false
+    }
+  })
+  // Demandé au premier bilan seulement, tant que le sexe n'est pas renseigné
+  const showSexPrompt = Boolean(settings) && !patientSex && !sexPromptDismissed
+
+  async function handleChooseSex(sex: PatientSex) {
+    await db.settings.update('default', { patientSex: sex })
+  }
+
+  function handleSkipSex() {
+    setSexPromptDismissed(true)
+    try {
+      localStorage.setItem(SEX_PROMPT_DISMISSED_KEY, '1')
+    } catch {
+      // Stockage indisponible : la question réapparaîtra au prochain bilan
+    }
+  }
 
   const [draft, setDraft] = useState<ParsedLabDraft>(() => ({
     date: getTodayKey(),
@@ -291,6 +317,41 @@ export function ImportLabModal({ initialMode = 'import', onClose }: ImportLabMod
                 <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-amber-600" />
               )}
               <span>{parseMessage.text}</span>
+            </div>
+          )}
+
+          {showSexPrompt && (
+            <div className="p-3 rounded-2xl border border-teal-200/80 dark:border-teal-800/60 bg-teal-50/70 dark:bg-teal-950/30 space-y-2">
+              <p className="text-xs font-semibold text-slate-800 dark:text-slate-100">
+                Pour comparer vos résultats à la bonne norme, êtes-vous :
+              </p>
+              <p className="text-[11px] text-slate-600 dark:text-slate-300">
+                Certaines normes (hématies, transaminases, GGT) diffèrent selon le sexe. Modifiable
+                à tout moment dans les Paramètres.
+              </p>
+              <div className="grid grid-cols-3 gap-2">
+                <button
+                  type="button"
+                  onClick={() => handleChooseSex('F')}
+                  className="py-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-800 dark:text-slate-100"
+                >
+                  Femme
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleChooseSex('M')}
+                  className="py-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-800 dark:text-slate-100"
+                >
+                  Homme
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSkipSex}
+                  className="py-2 rounded-xl text-xs font-semibold text-slate-500 dark:text-slate-400"
+                >
+                  Ne pas préciser
+                </button>
+              </div>
             </div>
           )}
 

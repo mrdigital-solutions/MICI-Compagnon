@@ -22,6 +22,8 @@ export const CHANGELOG = [
       'Dose correcte pour chaque traitement et courbe « fin de dose » adaptée à la durée de votre cycle.',
       'Bilans : normes selon le sexe, lecture des PDF plus fiable (date de naissance ignorée, unités converties).',
       'Rappels à l’heure de votre choix, zoom autorisé, application plus légère et plus rapide à ouvrir.',
+      'Première ouverture : même choix du traitement que dans les Paramètres, avec un 2e traitement optionnel (combothérapie) juste en dessous.',
+      'Au premier bilan, choix Femme / Homme (facultatif) pour comparer vos résultats aux bonnes normes.',
     ],
   },
   {

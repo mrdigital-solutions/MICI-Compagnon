@@ -15,7 +15,6 @@ import {
   APP_VERSION,
   CHANGELOG,
   DONATION_URL,
-  TREATMENT_PRESETS,
 } from '../../config/support'
 import {
   BackupFormatError,
@@ -29,7 +28,7 @@ import {
 } from '../../db/database'
 import type { AppSettings, PatientSex } from '../../types'
 import { formatDateFr, getTodayKey, toDateKey } from '../../utils/dateUtils'
-import { isOralTreatment } from '../../utils/treatment'
+import { isOralTreatment, isPresetTreatment } from '../../utils/treatment'
 import {
   isNotificationSupported,
   requestNotificationPermission,
@@ -41,6 +40,8 @@ import {
   subscribePwaInstall,
 } from '../../utils/pwaInstall'
 import { SetupScheduleModal } from '../Calendar/SetupScheduleModal'
+import { SecondaryTreatmentFields } from '../Treatment/SecondaryTreatmentFields'
+import { TreatmentSelect } from '../Treatment/TreatmentSelect'
 
 interface SettingsModalProps {
   settings: AppSettings
@@ -50,7 +51,7 @@ interface SettingsModalProps {
 export function SettingsModal({ settings, onClose }: SettingsModalProps) {
   const [treatmentName, setTreatmentName] = useState(settings.treatmentName)
   const [treatmentIsCustom, setTreatmentIsCustom] = useState(
-    () => !TREATMENT_PRESETS.some((p) => p.name === settings.treatmentName),
+    () => !isPresetTreatment(settings.treatmentName),
   )
   const [cycleDays, setCycleDays] = useState(settings.cycleDays)
   const [secondaryTreatmentName, setSecondaryTreatmentName] = useState(
@@ -59,7 +60,7 @@ export function SettingsModal({ settings, onClose }: SettingsModalProps) {
   const [secondaryIsCustom, setSecondaryIsCustom] = useState(
     () =>
       Boolean(settings.secondaryTreatmentName) &&
-      !TREATMENT_PRESETS.some((p) => p.name === settings.secondaryTreatmentName),
+      !isPresetTreatment(settings.secondaryTreatmentName ?? ''),
   )
   const [secondaryCycleDays, setSecondaryCycleDays] = useState(
     settings.secondaryCycleDays ?? 7,
@@ -234,123 +235,39 @@ export function SettingsModal({ settings, onClose }: SettingsModalProps) {
               {/* Treatment & cycle (grouped cleanly at the top) */}
               <div className="space-y-3">
                 <div>
-                  <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1">
+                  <label
+                    htmlFor="settings-treatment"
+                    className="block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1"
+                  >
                     Traitement principal
                   </label>
-                  <select
-                    value={treatmentIsCustom ? '__custom__' : treatmentName}
-                    onChange={(e) => {
-                      const val = e.target.value
-                      if (val === '__custom__') {
-                        setTreatmentIsCustom(true)
-                      } else {
-                        setTreatmentIsCustom(false)
-                        setTreatmentName(val)
-                        const found = TREATMENT_PRESETS.find((p) => p.name === val)
-                        if (found) setCycleDays(found.cycleDays)
-                      }
+                  <TreatmentSelect
+                    id="settings-treatment"
+                    value={treatmentName}
+                    isCustom={treatmentIsCustom}
+                    onChange={({ name, isCustom, preset }) => {
+                      setTreatmentName(name)
+                      setTreatmentIsCustom(isCustom)
+                      if (preset) setCycleDays(preset.cycleDays)
                     }}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-sm font-semibold text-slate-900 dark:text-white"
-                  >
-                    {TREATMENT_PRESETS.map((p) => (
-                      <option key={p.name} value={p.name}>
-                        {p.name} ({p.cycleDays} j)
-                      </option>
-                    ))}
-                    <option value="__custom__">Autre traitement (saisie libre)...</option>
-                  </select>
-                  {treatmentIsCustom && (
-                    <input
-                      type="text"
-                      value={treatmentName}
-                      onChange={(e) => setTreatmentName(e.target.value)}
-                      placeholder="Nom et dosage du traitement..."
-                      className="mt-2 w-full px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm font-semibold text-slate-900 dark:text-white"
-                    />
-                  )}
+                  />
                 </div>
 
-                <div>
-                  <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1">
-                    2e traitement (Combothérapie · optionnel)
-                  </label>
-                  <select
-                    value={
-                      !secondaryTreatmentName && !secondaryIsCustom
-                        ? ''
-                        : secondaryIsCustom
-                          ? '__custom__'
-                          : secondaryTreatmentName
-                    }
-                    onChange={(e) => {
-                      const val = e.target.value
-                      if (val === '') {
-                        setSecondaryIsCustom(false)
-                        setSecondaryTreatmentName('')
-                      } else if (val === '__custom__') {
-                        setSecondaryIsCustom(true)
-                        if (!secondaryTreatmentName) setSecondaryTreatmentName('')
-                        if (!secondaryNextDate) {
-                          setSecondaryNextDate(getTodayKey())
-                        }
-                      } else {
-                        setSecondaryIsCustom(false)
-                        setSecondaryTreatmentName(val)
-                        const found = TREATMENT_PRESETS.find((p) => p.name === val)
-                        if (found) setSecondaryCycleDays(found.cycleDays)
-                        if (!secondaryNextDate) {
-                          setSecondaryNextDate(getTodayKey())
-                        }
-                      }
-                    }}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-sm font-semibold text-slate-900 dark:text-white"
-                  >
-                    <option value="">Aucun</option>
-                    {TREATMENT_PRESETS.map((p) => (
-                      <option key={p.name} value={p.name}>
-                        {p.name} ({p.cycleDays} j)
-                      </option>
-                    ))}
-                    <option value="__custom__">Autre traitement (saisie libre)...</option>
-                  </select>
-                  {secondaryIsCustom && (
-                    <input
-                      type="text"
-                      value={secondaryTreatmentName}
-                      onChange={(e) => setSecondaryTreatmentName(e.target.value)}
-                      placeholder="Nom du 2e traitement (ex: Méthotrexate 15 mg)..."
-                      className="mt-2 w-full px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm font-semibold text-slate-900 dark:text-white"
-                    />
-                  )}
-                  {(secondaryTreatmentName.trim() || secondaryIsCustom) && (
-                    <div className="mt-2 grid grid-cols-2 gap-2">
-                      <div>
-                        <label className="block text-[11px] font-semibold text-slate-500 mb-1">
-                          Cycle 2e (jours)
-                        </label>
-                        <input
-                          type="number"
-                          min={1}
-                          max={120}
-                          value={secondaryCycleDays}
-                          onChange={(e) => setSecondaryCycleDays(Number(e.target.value))}
-                          className="w-full px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs font-semibold"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-[11px] font-semibold text-slate-500 mb-1">
-                          Prochaine prise
-                        </label>
-                        <input
-                          type="date"
-                          value={secondaryNextDate}
-                          onChange={(e) => setSecondaryNextDate(e.target.value)}
-                          className="w-full px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs font-semibold"
-                        />
-                      </div>
-                    </div>
-                  )}
-                </div>
+                <SecondaryTreatmentFields
+                  id="settings-secondary-treatment"
+                  value={{
+                    name: secondaryTreatmentName,
+                    isCustom: secondaryIsCustom,
+                    cycleDays: secondaryCycleDays,
+                    nextDate: secondaryNextDate,
+                  }}
+                  onChange={(v) => {
+                    setSecondaryTreatmentName(v.name)
+                    setSecondaryIsCustom(v.isCustom)
+                    setSecondaryCycleDays(v.cycleDays)
+                    setSecondaryNextDate(v.nextDate)
+                  }}
+                />
 
                 <div>
                   <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1">

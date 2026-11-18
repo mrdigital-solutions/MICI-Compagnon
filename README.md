@@ -56,3 +56,7 @@ src/
 
 MICI Compagnon est un outil de suivi personnel. Il ne remplace pas l'avis d'un médecin. Les
 valeurs de référence affichées sont indicatives : seules celles du laboratoire font foi.
+
+---
+
+© 2026 MR Digital Solutions

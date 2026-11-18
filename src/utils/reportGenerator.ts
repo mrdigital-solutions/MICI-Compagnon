@@ -1,3 +1,4 @@
+import { COPYRIGHT } from '../config/support'
 import { getSiteLabel } from '../db/database'
 import type { AppSettings, DailyEntry, InjectionRecord, LabResult } from '../types'
 import { diffDays, formatDateFr, formatShortDateFr } from './dateUtils'
@@ -432,6 +433,15 @@ export async function exportReportToPdf(report: MedicalReportSummary): Promise<v
     }
     doc.text(line, 15, y)
     y += 5.8
+  }
+
+  const pageCount = doc.getNumberOfPages()
+  doc.setFont('helvetica', 'normal')
+  doc.setFontSize(7)
+  doc.setTextColor(148, 163, 184)
+  for (let page = 1; page <= pageCount; page++) {
+    doc.setPage(page)
+    doc.text(COPYRIGHT, 105, 291, { align: 'center' })
   }
 
   doc.save(`bilan-mici-${report.startDate}_au_${report.endDate}.pdf`)

@@ -13,6 +13,7 @@ import {
 import { useEffect, useRef, useState } from 'react'
 import {
   APP_VERSION,
+  COPYRIGHT,
   CHANGELOG,
   DONATION_URL,
 } from '../../config/support'
@@ -26,6 +27,7 @@ import {
   updateCycleDaysAndRecalculate,
   type ParsedBackup,
 } from '../../db/database'
+import { describeSaveError, withSaveTimeout } from '../../db/dbHealth'
 import type { AppSettings, PatientSex } from '../../types'
 import { formatDateFr, getTodayKey, toDateKey } from '../../utils/dateUtils'
 import { isOralTreatment, isPresetTreatment } from '../../utils/treatment'
@@ -94,15 +96,25 @@ export function SettingsModal({ settings, onClose }: SettingsModalProps) {
   }, [])
 
   async function handleSaveSettings() {
+    try {
+      await saveSettings()
+      setFeedback('Paramètres enregistrés.')
+      setTimeout(() => setFeedback(null), 2000)
+    } catch (err) {
+      setFeedback(describeSaveError(err))
+    }
+  }
+
+  async function saveSettings() {
     const nextTreatment = treatmentName.trim() || settings.treatmentName
     if (cycleDays !== settings.cycleDays) {
-      await updateCycleDaysAndRecalculate(cycleDays)
+      await withSaveTimeout(() => updateCycleDaysAndRecalculate(cycleDays))
     }
     if (nextTreatment !== settings.treatmentName) {
       // Met à jour la dose et la rotation des sites des prises encore prévues
-      await applyTreatmentToPlanned(nextTreatment)
+      await withSaveTimeout(() => applyTreatmentToPlanned(nextTreatment))
     }
-    await db.settings.update('default', {
+    await withSaveTimeout(() => db.settings.update('default', {
       treatmentName: nextTreatment,
       secondaryTreatmentName: secondaryTreatmentName.trim() || undefined,
       secondaryCycleDays: secondaryTreatmentName.trim() ? secondaryCycleDays : undefined,
@@ -119,9 +131,7 @@ export function SettingsModal({ settings, onClose }: SettingsModalProps) {
       reminderSameDay,
       reminderHour,
       patientSex: patientSex || undefined,
-    })
-    setFeedback('Paramètres enregistrés.')
-    setTimeout(() => setFeedback(null), 2000)
+    }))
   }
 
   async function handleEnableNotifications() {
@@ -165,11 +175,13 @@ export function SettingsModal({ settings, onClose }: SettingsModalProps) {
     if (!pendingBackup) return
     setImporting(true)
     try {
-      await restoreBackup(pendingBackup)
+      await withSaveTimeout(() => restoreBackup(pendingBackup), 30_000)
       setPendingBackup(null)
       setFeedback('Sauvegarde restaurée avec succès.')
-    } catch {
-      setFeedback('Erreur pendant la restauration : vos données actuelles sont conservées.')
+    } catch (err) {
+      setFeedback(
+        `Erreur pendant la restauration : vos données actuelles sont conservées. ${describeSaveError(err)}`,
+      )
     } finally {
       setImporting(false)
     }
@@ -188,7 +200,9 @@ export function SettingsModal({ settings, onClose }: SettingsModalProps) {
   }
 
   async function handleResetAll() {
-    await db.transaction(
+    try {
+      await withSaveTimeout(() =>
+        db.transaction(
       'rw',
       db.injections,
       db.dailyEntries,
@@ -203,6 +217,11 @@ export function SettingsModal({ settings, onClose }: SettingsModalProps) {
         ])
       },
     )
+      )
+    } catch (err) {
+      setFeedback(describeSaveError(err))
+      return
+    }
     window.location.reload()
   }
 
@@ -627,6 +646,10 @@ export function SettingsModal({ settings, onClose }: SettingsModalProps) {
                   )}
                 </div>
               </div>
+
+              <p className="pt-2 text-center text-[10px] text-slate-400 dark:text-slate-500">
+                MICI Compagnon v{APP_VERSION} · {COPYRIGHT}
+              </p>
             </>
           )}
         </div>

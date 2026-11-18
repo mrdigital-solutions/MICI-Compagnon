@@ -13,6 +13,8 @@ export interface TreatmentPreset {
 
 export const APP_VERSION = '1.3'
 
+export const COPYRIGHT = '© 2026 MR Digital Solutions'
+
 export const CHANGELOG = [
   {
     version: '1.3 — 18 nov.',

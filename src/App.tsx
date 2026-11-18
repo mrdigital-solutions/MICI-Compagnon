@@ -10,6 +10,7 @@ import { TopNav } from './components/Layout/TopNav'
 import { SettingsModal } from './components/Settings/SettingsModal'
 import { BreathingModal } from './components/Wellness/BreathingModal'
 import { SupportBetaBubble } from './components/Wellness/SupportBetaBubble'
+import { TodayEventsBubble } from './components/Wellness/TodayEventsBubble'
 import { DbHealthBanner } from './components/Common/DbHealthBanner'
 import { DEFAULT_SETTINGS, db, ensureDefaultSettings } from './db/database'
 import { quickWrite } from './db/dbHealth'
@@ -259,6 +260,8 @@ export function App() {
       {breathingOpen && (
         <BreathingModal onClose={() => setBreathingOpen(false)} />
       )}
+
+      <TodayEventsBubble settings={settings} nextPlanned={nextPlanned} />
 
       <SupportBetaBubble visible={Boolean(settings?.onboardingCompleted)} />
 

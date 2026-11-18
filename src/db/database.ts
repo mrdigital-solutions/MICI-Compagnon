@@ -8,6 +8,7 @@ import {
   type LabResult,
 } from '../types'
 import { addDays, getTodayKey } from '../utils/dateUtils'
+import { getDbHealth, setDbHealth } from './dbHealth'
 import { extractDoseMg, isOralTreatment } from '../utils/treatment'
 
 export const DEFAULT_SETTINGS: AppSettings = {
@@ -57,6 +58,27 @@ class CrohnDatabase extends Dexie {
 }
 
 export const db = new CrohnDatabase()
+
+// Gestion des connexions concurrentes (ancienne version restée ouverte en arrière-plan) :
+// - blocked : NOTRE ouverture/mise à jour attend qu'une autre connexion se ferme
+// - versionchange : une version plus récente veut la main ; on ferme proprement la nôtre
+//   (comportement Dexie par défaut) pour ne jamais bloquer l'autre fenêtre
+// - close : le navigateur a fermé la connexion
+db.on('blocked', () => setDbHealth('blocked'))
+db.on('versionchange', () => {
+  setDbHealth('outdated')
+})
+db.on('close', () => setDbHealth((getDbHealth() === 'ok' ? 'closed' : getDbHealth())))
+db.on('ready', () => setDbHealth('ok'))
+
+// Si l'ouverture reste en attente (autre connexion qui ne répond pas), on le signale.
+const openWatchdog = setTimeout(() => setDbHealth('blocked'), 8000)
+db.open()
+  .then(() => clearTimeout(openWatchdog))
+  .catch(() => {
+    clearTimeout(openWatchdog)
+    setDbHealth('closed')
+  })
 
 export async function ensureDefaultSettings(): Promise<AppSettings> {
   if (typeof navigator !== 'undefined' && navigator.storage?.persist) {

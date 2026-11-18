@@ -1,6 +1,8 @@
 import { Syringe, X } from 'lucide-react'
 import { useState } from 'react'
 import { getNextRecommendedSite, markInjectionDone } from '../../db/database'
+import { describeSaveError, withSaveTimeout } from '../../db/dbHealth'
+import { SaveError } from '../Common/SaveError'
 import type { InjectionRecord, InjectionSite } from '../../types'
 import { getTodayKey } from '../../utils/dateUtils'
 import { isOralTreatment } from '../../utils/treatment'
@@ -25,19 +27,25 @@ export function ConfirmInjectionModal({
   const [actualDate, setActualDate] = useState<string>(getTodayKey())
   const [notes, setNotes] = useState<string>('')
   const [saving, setSaving] = useState(false)
+  const [saveError, setSaveError] = useState<string | null>(null)
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!injection.id) return
     setSaving(true)
+    setSaveError(null)
     try {
-      await markInjectionDone({
-        injectionId: injection.id,
-        site: oral ? undefined : site,
-        actualDate,
-        notes,
-      })
+      await withSaveTimeout(() =>
+        markInjectionDone({
+          injectionId: injection.id!,
+          site: oral ? undefined : site,
+          actualDate,
+          notes,
+        }),
+      )
       onClose()
+    } catch (err) {
+      setSaveError(describeSaveError(err))
     } finally {
       setSaving(false)
     }
@@ -106,6 +114,8 @@ export function ConfirmInjectionModal({
               className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-sm text-slate-900 dark:text-white"
             />
           </div>
+
+          <SaveError message={saveError} />
 
           <div className="flex gap-2.5 pt-1">
             <button

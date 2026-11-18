@@ -12,6 +12,7 @@ import {
   YAxis,
 } from 'recharts'
 import { db } from '../../db/database'
+import { quickWrite } from '../../db/dbHealth'
 import type { LabResult } from '../../types'
 import { formatShortDateFr } from '../../utils/dateUtils'
 import {
@@ -75,7 +76,7 @@ export function LabsTab() {
 
   async function handleDelete(id?: number) {
     if (id === undefined) return
-    await db.labResults.delete(id)
+    await quickWrite(() => db.labResults.delete(id))
   }
 
   function handleOpenStoredPdf(blob: Blob, fileName?: string) {

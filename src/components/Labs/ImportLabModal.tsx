@@ -10,6 +10,8 @@ import {
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useRef, useState } from 'react'
 import { db } from '../../db/database'
+import { describeSaveError, withSaveTimeout } from '../../db/dbHealth'
+import { SaveError } from '../Common/SaveError'
 import type { PatientSex } from '../../types'
 import { formatDateFr, getTodayKey } from '../../utils/dateUtils'
 import {
@@ -38,6 +40,7 @@ export function ImportLabModal({ initialMode = 'import', onClose }: ImportLabMod
     text: string
   } | null>(null)
   const [saving, setSaving] = useState(false)
+  const [saveError, setSaveError] = useState<string | null>(null)
   // Date pour laquelle l'utilisateur a confirmé la fusion avec un bilan existant
   const [mergeConfirmedFor, setMergeConfirmedFor] = useState<string | null>(null)
   const [mergeWarning, setMergeWarning] = useState<string | null>(null)
@@ -55,7 +58,11 @@ export function ImportLabModal({ initialMode = 'import', onClose }: ImportLabMod
   const showSexPrompt = Boolean(settings) && !patientSex && !sexPromptDismissed
 
   async function handleChooseSex(sex: PatientSex) {
-    await db.settings.update('default', { patientSex: sex })
+    try {
+      await withSaveTimeout(() => db.settings.update('default', { patientSex: sex }))
+    } catch (err) {
+      setSaveError(describeSaveError(err))
+    }
   }
 
   function handleSkipSex() {
@@ -144,8 +151,11 @@ export function ImportLabModal({ initialMode = 'import', onClose }: ImportLabMod
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setSaving(true)
+    setSaveError(null)
     try {
-      const existing = await db.labResults.where('date').equals(draft.date).toArray()
+      const existing = await withSaveTimeout(() =>
+        db.labResults.where('date').equals(draft.date).toArray(),
+      )
       if (existing.length > 0 && mergeConfirmedFor !== draft.date) {
         setMergeConfirmedFor(draft.date)
         setMergeWarning(
@@ -166,15 +176,20 @@ export function ImportLabModal({ initialMode = 'import', onClose }: ImportLabMod
         if (draft.pdfBlob) definedUpdates.pdfBlob = draft.pdfBlob
 
         if (base.id !== undefined) {
-          await db.labResults.update(base.id, definedUpdates)
+          const baseId = base.id
+          await withSaveTimeout(() => db.labResults.update(baseId, definedUpdates))
         }
       } else {
-        await db.labResults.add({
-          ...draft,
-          createdAt: new Date().toISOString(),
-        })
+        await withSaveTimeout(() =>
+          db.labResults.add({
+            ...draft,
+            createdAt: new Date().toISOString(),
+          }),
+        )
       }
       onClose()
+    } catch (err) {
+      setSaveError(describeSaveError(err))
     } finally {
       setSaving(false)
     }
@@ -425,6 +440,12 @@ export function ImportLabModal({ initialMode = 'import', onClose }: ImportLabMod
           <p className="px-5 py-2.5 text-xs font-medium text-amber-900 dark:text-amber-100 bg-amber-50 dark:bg-amber-950/40 border-t border-amber-200 dark:border-amber-800/60 shrink-0">
             {mergeWarning}
           </p>
+        )}
+
+        {saveError && (
+          <div className="px-5 pb-2 shrink-0">
+            <SaveError message={saveError} />
+          </div>
         )}
 
         {/* Sticky footer always visible on mobile */}

@@ -12,6 +12,8 @@ import {
 } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { db } from '../../db/database'
+import { describeSaveError, withSaveTimeout } from '../../db/dbHealth'
+import { SaveError } from '../Common/SaveError'
 import type { AppSettings } from '../../types'
 
 interface EmergencyCardModalProps {
@@ -38,6 +40,7 @@ export function EmergencyCardModal({ settings, onClose }: EmergencyCardModalProp
   )
   const [emergencyNotes, setEmergencyNotes] = useState(settings.emergencyNotes ?? '')
   const [saving, setSaving] = useState(false)
+  const [saveError, setSaveError] = useState<string | null>(null)
   const [fullscreenCard, setFullscreenCard] = useState(false)
   const cardInputRef = useRef<HTMLInputElement>(null)
 
@@ -58,28 +61,44 @@ export function EmergencyCardModal({ settings, onClose }: EmergencyCardModalProp
     const file = e.target.files?.[0]
     e.target.value = ''
     if (!file) return
-    const blob = new Blob([await file.arrayBuffer()], {
-      type: file.type || 'image/jpeg',
-    })
-    await db.settings.update('default', {
-      priorityCardBlob: blob,
-      priorityCardName: file.name,
-    })
+    setSaveError(null)
+    try {
+      const blob = new Blob([await file.arrayBuffer()], {
+        type: file.type || 'image/jpeg',
+      })
+      await withSaveTimeout(() =>
+        db.settings.update('default', {
+          priorityCardBlob: blob,
+          priorityCardName: file.name,
+        }),
+      )
+    } catch (err) {
+      setSaveError(describeSaveError(err))
+    }
   }
 
   async function handleRemoveCard() {
-    await db.settings.update('default', {
-      priorityCardBlob: undefined,
-      priorityCardName: undefined,
-    })
-    setFullscreenCard(false)
+    setSaveError(null)
+    try {
+      await withSaveTimeout(() =>
+        db.settings.update('default', {
+          priorityCardBlob: undefined,
+          priorityCardName: undefined,
+        }),
+      )
+      setFullscreenCard(false)
+    } catch (err) {
+      setSaveError(describeSaveError(err))
+    }
   }
 
   async function handleSave(e: React.FormEvent) {
     e.preventDefault()
     setSaving(true)
+    setSaveError(null)
     try {
-      await db.settings.update('default', {
+      await withSaveTimeout(() =>
+        db.settings.update('default', {
         patientName: patientName.trim() || undefined,
         bloodGroup: bloodGroup || undefined,
         allergies: allergies.trim() || undefined,
@@ -88,8 +107,11 @@ export function EmergencyCardModal({ settings, onClose }: EmergencyCardModalProp
         emergencyContactName: emergencyContactName.trim() || undefined,
         emergencyContactPhone: emergencyContactPhone.trim() || undefined,
         emergencyNotes: emergencyNotes.trim() || undefined,
-      })
+      }),
+      )
       setEditing(false)
+    } catch (err) {
+      setSaveError(describeSaveError(err))
     } finally {
       setSaving(false)
     }
@@ -209,6 +231,7 @@ export function EmergencyCardModal({ settings, onClose }: EmergencyCardModalProp
                     Ajouter ma carte en photo (AFA / CMI Priorité)
                   </button>
                 )}
+                <SaveError message={saveError} />
                 <input
                   ref={cardInputRef}
                   type="file"
@@ -443,6 +466,8 @@ export function EmergencyCardModal({ settings, onClose }: EmergencyCardModalProp
                   className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm"
                 />
               </div>
+
+              <SaveError message={saveError} />
 
               <div className="flex gap-2">
                 <button

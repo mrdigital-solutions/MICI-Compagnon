@@ -1,6 +1,8 @@
 import { CalendarClock, X } from 'lucide-react'
 import { useState } from 'react'
 import { shiftInjectionAndRecalculate } from '../../db/database'
+import { describeSaveError, withSaveTimeout } from '../../db/dbHealth'
+import { SaveError } from '../Common/SaveError'
 import type { InjectionRecord } from '../../types'
 import { addDays, formatDateFr } from '../../utils/dateUtils'
 
@@ -26,6 +28,7 @@ export function ShiftInjectionModal({
   const [shiftDays, setShiftDays] = useState<number>(3)
   const [reason, setReason] = useState<string>('Fièvre / Infection')
   const [saving, setSaving] = useState(false)
+  const [saveError, setSaveError] = useState<string | null>(null)
 
   const newDate = addDays(injection.scheduledDate, shiftDays)
   const nextCycleDate = addDays(newDate, cycleDays)
@@ -34,13 +37,18 @@ export function ShiftInjectionModal({
     e.preventDefault()
     if (!injection.id || shiftDays === 0) return
     setSaving(true)
+    setSaveError(null)
     try {
-      await shiftInjectionAndRecalculate({
-        injectionId: injection.id,
-        shiftDays,
-        reason,
-      })
+      await withSaveTimeout(() =>
+        shiftInjectionAndRecalculate({
+          injectionId: injection.id!,
+          shiftDays,
+          reason,
+        }),
+      )
       onClose()
+    } catch (err) {
+      setSaveError(describeSaveError(err))
     } finally {
       setSaving(false)
     }
@@ -148,6 +156,8 @@ export function ShiftInjectionModal({
               <span className="capitalize">{formatDateFr(nextCycleDate)}</span>
             </p>
           </div>
+
+          <SaveError message={saveError} />
 
           <div className="flex gap-2.5 pt-1">
             <button

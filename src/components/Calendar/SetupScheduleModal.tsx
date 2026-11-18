@@ -1,6 +1,8 @@
 import { CalendarCheck2 } from 'lucide-react'
 import { useState } from 'react'
 import { db, initializeInjectionSchedule } from '../../db/database'
+import { describeSaveError, withSaveTimeout } from '../../db/dbHealth'
+import { SaveError } from '../Common/SaveError'
 import type { InjectionSite } from '../../types'
 import { getTodayKey } from '../../utils/dateUtils'
 import { isOralTreatment, isPresetTreatment } from '../../utils/treatment'
@@ -38,6 +40,7 @@ export function SetupScheduleModal({
   const [cycleDays, setCycleDays] = useState<number>(initialCycleDays)
   const [lastSite, setLastSite] = useState<InjectionSite>('ventre_droite')
   const [saving, setSaving] = useState(false)
+  const [saveError, setSaveError] = useState<string | null>(null)
   const [secondary, setSecondary] = useState<SecondaryTreatmentValue>({
     name: '',
     isCustom: false,
@@ -48,23 +51,30 @@ export function SetupScheduleModal({
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setSaving(true)
+    setSaveError(null)
     try {
       // Enregistré en premier : générer le calendrier ferme la fenêtre de première ouverture
       const secondaryName = secondary.name.trim()
       if (includeSecondary && secondaryName) {
-        await db.settings.update('default', {
-          secondaryTreatmentName: secondaryName,
-          secondaryCycleDays: secondary.cycleDays,
-          secondaryNextDate: secondary.nextDate || getTodayKey(),
-        })
+        await withSaveTimeout(() =>
+          db.settings.update('default', {
+            secondaryTreatmentName: secondaryName,
+            secondaryCycleDays: secondary.cycleDays,
+            secondaryNextDate: secondary.nextDate || getTodayKey(),
+          }),
+        )
       }
-      await initializeInjectionSchedule({
-        treatmentName,
-        nextInjectionDate: nextDate,
-        cycleDays,
-        lastSite: isOralTreatment(treatmentName) ? undefined : lastSite,
-      })
+      await withSaveTimeout(() =>
+        initializeInjectionSchedule({
+          treatmentName,
+          nextInjectionDate: nextDate,
+          cycleDays,
+          lastSite: isOralTreatment(treatmentName) ? undefined : lastSite,
+        }),
+      )
       onDone()
+    } catch (err) {
+      setSaveError(describeSaveError(err))
     } finally {
       setSaving(false)
     }
@@ -151,6 +161,8 @@ export function SetupScheduleModal({
             <InjectionSiteSelector value={lastSite} onChange={setLastSite} />
           </div>
         )}
+
+        <SaveError message={saveError} />
 
         <div className="flex gap-2.5 pt-1">
           {onCancel && (

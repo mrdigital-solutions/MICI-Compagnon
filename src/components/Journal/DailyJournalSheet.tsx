@@ -1,6 +1,8 @@
 import { Check, Droplets, Flame, Minus, Plus, Thermometer, Utensils, X } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { db, upsertDailyEntry } from '../../db/database'
+import { describeSaveError, withSaveTimeout } from '../../db/dbHealth'
+import { SaveError } from '../Common/SaveError'
 import {
   QUICK_TAGS,
   SUSPECTED_FOOD_PRESETS,
@@ -78,6 +80,7 @@ export function DailyJournalForm({
   const [customTag, setCustomTag] = useState('')
   const [notes, setNotes] = useState('')
   const [saving, setSaving] = useState(false)
+  const [saveError, setSaveError] = useState<string | null>(null)
   const [savedToast, setSavedToast] = useState(false)
 
   useEffect(() => {
@@ -154,8 +157,10 @@ export function DailyJournalForm({
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setSaving(true)
+    setSaveError(null)
     try {
-      await upsertDailyEntry({
+      await withSaveTimeout(() =>
+        upsertDailyEntry({
         date: dateKey,
         digestivePain,
         jointPain,
@@ -172,11 +177,14 @@ export function DailyJournalForm({
         suspectedFoods,
         tags,
         notes: notes.trim(),
-      })
+      }),
+      )
       setSavedToast(true)
       setTimeout(() => setSavedToast(false), 1800)
       onSaved?.()
       if (isModal) onClose?.()
+    } catch (err) {
+      setSaveError(describeSaveError(err))
     } finally {
       setSaving(false)
     }
@@ -555,6 +563,8 @@ export function DailyJournalForm({
           className="w-full px-3.5 py-2.5 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-sm text-slate-900 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-teal-500"
         />
       </div>
+
+      <SaveError message={saveError} />
 
       <button
         type="submit"

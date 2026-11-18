@@ -10,7 +10,9 @@ import { TopNav } from './components/Layout/TopNav'
 import { SettingsModal } from './components/Settings/SettingsModal'
 import { BreathingModal } from './components/Wellness/BreathingModal'
 import { SupportBetaBubble } from './components/Wellness/SupportBetaBubble'
+import { DbHealthBanner } from './components/Common/DbHealthBanner'
 import { DEFAULT_SETTINGS, db, ensureDefaultSettings } from './db/database'
+import { quickWrite } from './db/dbHealth'
 import type { AppTab } from './types'
 import { triggerLocalReminderIfNeeded } from './utils/notifications'
 
@@ -48,7 +50,7 @@ export function App() {
   )
 
   useEffect(() => {
-    ensureDefaultSettings()
+    ensureDefaultSettings().catch(() => {})
   }, [])
 
   const currentSettings = settings ?? DEFAULT_SETTINGS
@@ -74,11 +76,12 @@ export function App() {
 
   async function toggleTheme() {
     const nextTheme = currentSettings.theme === 'dark' ? 'light' : 'dark'
-    await db.settings.update('default', { theme: nextTheme })
+    await quickWrite(() => db.settings.update('default', { theme: nextTheme }))
   }
 
   return (
     <div className="min-h-screen pb-12">
+      <DbHealthBanner />
       <header className="sticky top-0 z-20 pt-3 px-4">
         <div className="mx-auto max-w-5xl rounded-3xl bg-white/75 dark:bg-slate-900/80 backdrop-blur-xl border border-white/80 dark:border-slate-800 shadow-[0_8px_30px_rgb(0,0,0,0.04)] px-4 py-2.5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5">
           <div className="flex items-center justify-between">

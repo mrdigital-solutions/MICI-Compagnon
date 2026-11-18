@@ -16,6 +16,7 @@ import {
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useMemo, useState } from 'react'
 import { db, getNextRecommendedSite, getSiteLabel } from '../../db/database'
+import { quickWrite } from '../../db/dbHealth'
 import { INJECTION_SITES, type AppSettings, type DailyEntry, type InjectionRecord } from '../../types'
 import {
   addDays,
@@ -164,13 +165,13 @@ export function CalendarTab({ settings, onSelectDay }: CalendarTabProps) {
   async function adjustStock(delta: number) {
     const current = settings.penStock ?? 0
     const next = Math.max(0, current + delta)
-    await db.settings.update('default', { penStock: next })
+    await quickWrite(() => db.settings.update('default', { penStock: next }))
   }
 
   async function markSecondaryDone() {
     if (!settings.secondaryNextDate || !settings.secondaryCycleDays) return
     const nextDate = addDays(today, settings.secondaryCycleDays)
-    await db.settings.update('default', { secondaryNextDate: nextDate })
+    await quickWrite(() => db.settings.update('default', { secondaryNextDate: nextDate }))
   }
 
   return (

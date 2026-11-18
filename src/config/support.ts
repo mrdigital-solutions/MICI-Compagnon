@@ -11,7 +11,7 @@ export interface TreatmentPreset {
   isOral?: boolean
 }
 
-export const APP_VERSION = '1.4'
+export const APP_VERSION = '1.4.1'
 
 export const COPYRIGHT = '© 2026 MR Digital Solutions'
 
@@ -20,7 +20,7 @@ export const CHANGELOG = [
     version: '1.4 — 18 nov.',
     items: [
       'Zones d’injection préférées (Paramètres) : toutes les zones, cuisses uniquement ou ventre uniquement. La rotation suggérée respecte votre choix.',
-      'Carte Urgence : l’onglet s’appelle désormais « Toilettes & Carte », car il contient aussi la photo de votre carte de priorité / CMI.',
+      'Carte Urgence : l’onglet s’appelle désormais « Toilettes & Priorité » : il contient le message d’accès aux toilettes et la photo de votre carte de priorité (CMI ou carte AFA).',
       'Enregistrement plus fiable : plus de bouton bloqué sur « Enregistrement… ». Un message clair s’affiche si l’app doit être fermée puis rouverte.',
       'Au programme aujourd’hui : à l’ouverture, un rappel de ce qui est prévu dans la journée (injection, prise, rendez-vous).',
       'Nouvelle icône et nouveau logo, plus lisibles sur l’écran d’accueil.',

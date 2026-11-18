@@ -17,6 +17,15 @@ export const INJECTION_SITES: {
   { id: 'ventre_droite', label: 'Ventre droite', shortLabel: 'Ventre D', zone: 'Ventre', side: 'Droite' },
 ]
 
+/** Zones d'injection que la personne souhaite utiliser pour la rotation */
+export type InjectionZonePreference = 'all' | 'cuisse' | 'ventre'
+
+export const INJECTION_ZONE_OPTIONS: { id: InjectionZonePreference; label: string }[] = [
+  { id: 'all', label: 'Toutes les zones (Ventre & Cuisses)' },
+  { id: 'cuisse', label: 'Cuisses uniquement (Cuisse gauche / Cuisse droite)' },
+  { id: 'ventre', label: 'Ventre uniquement (Ventre gauche / Ventre droit)' },
+]
+
 export type InjectionStatus = 'planned' | 'done' | 'shifted'
 
 export interface InjectionRecord {
@@ -101,6 +110,8 @@ export interface AppSettings {
   cycleDays: number
   lastInjectionDate?: string
   lastInjectionSite?: InjectionSite
+  /** Zones utilisées pour la rotation (absent = toutes les zones) */
+  injectionZones?: InjectionZonePreference
   reminderDayBefore: boolean
   reminderSameDay: boolean
   reminderHour: string

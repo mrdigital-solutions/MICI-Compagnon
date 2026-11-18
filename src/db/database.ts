@@ -5,6 +5,7 @@ import {
   type DailyEntry,
   type InjectionRecord,
   type InjectionSite,
+  type InjectionZonePreference,
   type LabResult,
 } from '../types'
 import { addDays, getTodayKey } from '../utils/dateUtils'
@@ -90,11 +91,28 @@ export async function ensureDefaultSettings(): Promise<AppSettings> {
   return DEFAULT_SETTINGS
 }
 
-export function getNextRecommendedSite(lastSite?: InjectionSite): InjectionSite {
-  if (!lastSite) return INJECTION_SITES[0].id
-  const idx = INJECTION_SITES.findIndex((s) => s.id === lastSite)
-  if (idx === -1) return INJECTION_SITES[0].id
-  return INJECTION_SITES[(idx + 1) % INJECTION_SITES.length].id
+/** Sites autorisés par la préférence de zones (toutes les zones par défaut). */
+export function getAllowedSites(preference: InjectionZonePreference = 'all') {
+  if (preference === 'cuisse') return INJECTION_SITES.filter((s) => s.zone === 'Cuisse')
+  if (preference === 'ventre') return INJECTION_SITES.filter((s) => s.zone === 'Ventre')
+  return INJECTION_SITES
+}
+
+/**
+ * Prochain site de la rotation, toujours choisi parmi les zones autorisées.
+ * Si le dernier site est hors des zones choisies (ex. ventre alors que seules les cuisses
+ * sont autorisées), on alterne le côté : ventre gauche → cuisse droite.
+ */
+export function getNextRecommendedSite(
+  lastSite?: InjectionSite,
+  preference: InjectionZonePreference = 'all',
+): InjectionSite {
+  const allowed = getAllowedSites(preference)
+  if (!lastSite) return allowed[0].id
+  const idx = allowed.findIndex((s) => s.id === lastSite)
+  if (idx !== -1) return allowed[(idx + 1) % allowed.length].id
+  const lastSide = INJECTION_SITES.find((s) => s.id === lastSite)?.side
+  return (allowed.find((s) => s.side !== lastSide) ?? allowed[0]).id
 }
 
 export function getSiteLabel(site?: InjectionSite): string {
@@ -130,7 +148,9 @@ export async function initializeInjectionSchedule(params: {
 
     for (let i = 0; i < horizonCount; i++) {
       const scheduledDate = addDays(nextInjectionDate, i * cycleDays)
-      const recommendedSite = oral ? undefined : getNextRecommendedSite(rollingSite)
+      const recommendedSite = oral
+        ? undefined
+        : getNextRecommendedSite(rollingSite, currentSettings?.injectionZones)
       if (recommendedSite) rollingSite = recommendedSite
       records.push({
         scheduledDate,
@@ -192,7 +212,7 @@ export async function ensureUpcomingInjections(horizonCount = 12): Promise<void>
 
   for (let i = 1; i <= needed; i++) {
     const scheduledDate = addDays(lastDate, i * settings.cycleDays)
-    const nextSite = oral ? undefined : getNextRecommendedSite(lastSite)
+    const nextSite = oral ? undefined : getNextRecommendedSite(lastSite, settings.injectionZones)
     if (nextSite) lastSite = nextSite
     newRecords.push({
       scheduledDate,
@@ -258,7 +278,7 @@ export async function markInjectionDone(params: {
     let rollingSite: InjectionSite | undefined = site
     for (let i = 0; i < laterPlanned.length; i++) {
       const nextDate = addDays(actualDate, (i + 1) * settings.cycleDays)
-      rollingSite = oral ? undefined : getNextRecommendedSite(rollingSite)
+      rollingSite = oral ? undefined : getNextRecommendedSite(rollingSite, settings.injectionZones)
       if (laterPlanned[i].id !== undefined) {
         await db.injections.update(laterPlanned[i].id!, {
           scheduledDate: nextDate,
@@ -312,7 +332,7 @@ export async function shiftInjectionAndRecalculate(params: {
     // Create the new planned injection at newDate
     let rollingSite: InjectionSite | undefined = oral
       ? undefined
-      : (target.site ?? getNextRecommendedSite(settings.lastInjectionSite))
+      : (target.site ?? getNextRecommendedSite(settings.lastInjectionSite, settings.injectionZones))
     await db.injections.add({
       scheduledDate: newDate,
       status: 'planned',
@@ -325,7 +345,7 @@ export async function shiftInjectionAndRecalculate(params: {
     // Recalculate all subsequent planned dates based on newDate + i * cycleDays
     for (let i = 0; i < laterPlanned.length; i++) {
       const recalculatedDate = addDays(newDate, (i + 1) * settings.cycleDays)
-      rollingSite = oral ? undefined : getNextRecommendedSite(rollingSite)
+      rollingSite = oral ? undefined : getNextRecommendedSite(rollingSite, settings.injectionZones)
       if (laterPlanned[i].id !== undefined) {
         await db.injections.update(laterPlanned[i].id!, {
           scheduledDate: recalculatedDate,
@@ -376,10 +396,32 @@ export async function applyTreatmentToPlanned(treatmentName: string): Promise<vo
       if (inj.id === undefined) continue
       let site: InjectionSite | undefined
       if (!oral) {
-        site = inj.site ?? getNextRecommendedSite(rollingSite)
+        site = inj.site ?? getNextRecommendedSite(rollingSite, settings?.injectionZones)
         rollingSite = site
       }
       await db.injections.update(inj.id, { doseMg, site })
+    }
+  })
+}
+
+/**
+ * Enregistre les zones d'injection préférées et recalcule le site de toutes les prises
+ * encore prévues, en partant du dernier site utilisé. L'historique n'est pas modifié.
+ */
+export async function applyInjectionZonesToPlanned(
+  preference: InjectionZonePreference,
+): Promise<void> {
+  await db.transaction('rw', db.injections, db.settings, async () => {
+    const settings = (await db.settings.get('default')) ?? DEFAULT_SETTINGS
+    await db.settings.update('default', { injectionZones: preference })
+    if (isOralTreatment(settings.treatmentName)) return
+
+    const planned = await db.injections.where('status').equals('planned').sortBy('scheduledDate')
+    let rollingSite = settings.lastInjectionSite
+    for (const inj of planned) {
+      if (inj.id === undefined) continue
+      rollingSite = getNextRecommendedSite(rollingSite, preference)
+      await db.injections.update(inj.id, { site: rollingSite })
     }
   })
 }

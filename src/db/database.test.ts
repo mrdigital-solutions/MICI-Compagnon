@@ -3,8 +3,10 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import {
   BackupFormatError,
   DEFAULT_SETTINGS,
+  applyInjectionZonesToPlanned,
   applyTreatmentToPlanned,
   base64ToBytes,
+  getNextRecommendedSite,
   bytesToBase64,
   db,
   ensureUpcomingInjections,
@@ -179,5 +181,49 @@ describe('sauvegarde et restauration', () => {
     expect(parsed.injections).toHaveLength(1)
     expect(parsed.labResults[0].pdfBlob).toBeUndefined()
     expect(parsed.settings[0].reminderHour).toBe('09:00')
+  })
+})
+
+describe('zones d\'injection préférées', () => {
+  it('alterne uniquement les cuisses', () => {
+    expect(getNextRecommendedSite('cuisse_gauche', 'cuisse')).toBe('cuisse_droite')
+    expect(getNextRecommendedSite('cuisse_droite', 'cuisse')).toBe('cuisse_gauche')
+    expect(getNextRecommendedSite(undefined, 'cuisse')).toBe('cuisse_gauche')
+  })
+
+  it('passe du ventre aux cuisses en changeant de côté', () => {
+    expect(getNextRecommendedSite('ventre_gauche', 'cuisse')).toBe('cuisse_droite')
+    expect(getNextRecommendedSite('ventre_droite', 'cuisse')).toBe('cuisse_gauche')
+    expect(getNextRecommendedSite('cuisse_droite', 'ventre')).toBe('ventre_gauche')
+  })
+
+  it('garde la rotation complète par défaut', () => {
+    expect(getNextRecommendedSite('cuisse_droite')).toBe('ventre_gauche')
+    expect(getNextRecommendedSite('ventre_droite', 'all')).toBe('cuisse_gauche')
+  })
+
+  it('recalcule les prises prévues et les suivantes restent dans les cuisses', async () => {
+    await initializeInjectionSchedule({
+      nextInjectionDate: '2026-01-05',
+      cycleDays: 14,
+      lastSite: 'ventre_droite',
+      horizonCount: 6,
+    })
+    await applyInjectionZonesToPlanned('cuisse')
+    const sites = (await planned()).map((p) => p.site)
+    expect(sites).toEqual([
+      'cuisse_gauche',
+      'cuisse_droite',
+      'cuisse_gauche',
+      'cuisse_droite',
+      'cuisse_gauche',
+      'cuisse_droite',
+    ])
+
+    const first = (await planned())[0]
+    await markInjectionDone({ injectionId: first.id!, site: 'cuisse_gauche', actualDate: '2026-01-05' })
+    const after = (await planned()).map((p) => p.site)
+    expect(after.every((s) => s === 'cuisse_gauche' || s === 'cuisse_droite')).toBe(true)
+    expect(after[0]).toBe('cuisse_droite')
   })
 })

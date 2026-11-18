@@ -19,6 +19,7 @@ import {
 } from '../../config/support'
 import {
   BackupFormatError,
+  applyInjectionZonesToPlanned,
   applyTreatmentToPlanned,
   db,
   exportAllDataToJson,
@@ -28,7 +29,12 @@ import {
   type ParsedBackup,
 } from '../../db/database'
 import { describeSaveError, withSaveTimeout } from '../../db/dbHealth'
-import type { AppSettings, PatientSex } from '../../types'
+import {
+  INJECTION_ZONE_OPTIONS,
+  type AppSettings,
+  type InjectionZonePreference,
+  type PatientSex,
+} from '../../types'
 import { formatDateFr, getTodayKey, toDateKey } from '../../utils/dateUtils'
 import { isOralTreatment, isPresetTreatment } from '../../utils/treatment'
 import {
@@ -79,6 +85,9 @@ export function SettingsModal({ settings, onClose }: SettingsModalProps) {
   const [reminderSameDay, setReminderSameDay] = useState(settings.reminderSameDay)
   const [reminderHour, setReminderHour] = useState(settings.reminderHour || '09:00')
   const [patientSex, setPatientSex] = useState<PatientSex | ''>(settings.patientSex ?? '')
+  const [injectionZones, setInjectionZones] = useState<InjectionZonePreference>(
+    settings.injectionZones ?? 'all',
+  )
   const [pendingBackup, setPendingBackup] = useState<ParsedBackup | null>(null)
   const [importing, setImporting] = useState(false)
   const [notifStatus, setNotifStatus] = useState<string>(
@@ -113,6 +122,10 @@ export function SettingsModal({ settings, onClose }: SettingsModalProps) {
     if (nextTreatment !== settings.treatmentName) {
       // Met à jour la dose et la rotation des sites des prises encore prévues
       await withSaveTimeout(() => applyTreatmentToPlanned(nextTreatment))
+    }
+    if (injectionZones !== (settings.injectionZones ?? 'all')) {
+      // Recalcule les zones des prises prévues pour respecter le nouveau choix
+      await withSaveTimeout(() => applyInjectionZonesToPlanned(injectionZones))
     }
     await withSaveTimeout(() => db.settings.update('default', {
       treatmentName: nextTreatment,
@@ -311,6 +324,31 @@ export function SettingsModal({ settings, onClose }: SettingsModalProps) {
                     </button>
                   </div>
                 </div>
+                {!isOralTreatment(treatmentName) && (
+                  <div>
+                    <label
+                      htmlFor="settings-injection-zones"
+                      className="block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1"
+                    >
+                      Zones d'injection préférées
+                    </label>
+                    <select
+                      id="settings-injection-zones"
+                      value={injectionZones}
+                      onChange={(e) => setInjectionZones(e.target.value as InjectionZonePreference)}
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-sm font-semibold text-slate-900 dark:text-white"
+                    >
+                      {INJECTION_ZONE_OPTIONS.map((o) => (
+                        <option key={o.id} value={o.id}>
+                          {o.label}
+                        </option>
+                      ))}
+                    </select>
+                    <p className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
+                      La zone suggérée pour chaque injection alterne uniquement entre ces zones.
+                    </p>
+                  </div>
+                )}
                 <div className="grid grid-cols-2 gap-2.5">
                   <div className={isOralTreatment(treatmentName) ? 'hidden' : ''}>
                     <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1">

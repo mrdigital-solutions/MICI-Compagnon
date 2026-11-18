@@ -1,9 +1,9 @@
 import { Syringe, X } from 'lucide-react'
 import { useState } from 'react'
-import { getNextRecommendedSite, markInjectionDone } from '../../db/database'
+import { getAllowedSites, getNextRecommendedSite, markInjectionDone } from '../../db/database'
 import { describeSaveError, withSaveTimeout } from '../../db/dbHealth'
 import { SaveError } from '../Common/SaveError'
-import type { InjectionRecord, InjectionSite } from '../../types'
+import type { InjectionRecord, InjectionSite, InjectionZonePreference } from '../../types'
 import { getTodayKey } from '../../utils/dateUtils'
 import { isOralTreatment } from '../../utils/treatment'
 import { InjectionSiteSelector } from './InjectionSiteSelector'
@@ -12,6 +12,7 @@ interface ConfirmInjectionModalProps {
   injection: InjectionRecord
   treatmentName: string
   lastSite?: InjectionSite
+  zonePreference?: InjectionZonePreference
   onClose: () => void
 }
 
@@ -19,10 +20,18 @@ export function ConfirmInjectionModal({
   injection,
   treatmentName,
   lastSite,
+  zonePreference,
   onClose,
 }: ConfirmInjectionModalProps) {
   const oral = isOralTreatment(treatmentName)
-  const recommendedSite = injection.site ?? getNextRecommendedSite(lastSite)
+  // Le site prévu est gardé seulement s'il fait partie des zones choisies
+  const plannedSiteAllowed =
+    injection.site !== undefined &&
+    getAllowedSites(zonePreference).some((s) => s.id === injection.site)
+  const recommendedSite =
+    plannedSiteAllowed && injection.site
+      ? injection.site
+      : getNextRecommendedSite(lastSite, zonePreference)
   const [site, setSite] = useState<InjectionSite>(recommendedSite)
   const [actualDate, setActualDate] = useState<string>(getTodayKey())
   const [notes, setNotes] = useState<string>('')

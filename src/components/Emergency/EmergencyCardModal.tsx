@@ -150,7 +150,7 @@ export function EmergencyCardModal({ settings, onClose }: EmergencyCardModalProp
                     : 'text-slate-600 dark:text-slate-400'
                 }`}
               >
-                Carte Toilettes
+                Toilettes & Carte
               </button>
               <button
                 type="button"

@@ -160,7 +160,8 @@ export function CalendarTab({ settings, onSelectDay }: CalendarTabProps) {
   const intake = oral ? 'Prise' : 'Injection'
   const daysUntilNext = nextPlanned ? diffDays(today, nextPlanned.scheduledDate) : null
   const recommendedSite =
-    nextPlanned?.site ?? getNextRecommendedSite(settings.lastInjectionSite)
+    nextPlanned?.site ??
+    getNextRecommendedSite(settings.lastInjectionSite, settings.injectionZones)
 
   async function adjustStock(delta: number) {
     const current = settings.penStock ?? 0
@@ -645,6 +646,7 @@ export function CalendarTab({ settings, onSelectDay }: CalendarTabProps) {
           injection={confirmTarget}
           treatmentName={settings.treatmentName}
           lastSite={settings.lastInjectionSite}
+          zonePreference={settings.injectionZones}
           onClose={() => setConfirmTarget(null)}
         />
       )}

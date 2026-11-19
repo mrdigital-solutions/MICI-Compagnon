@@ -50,6 +50,38 @@ export function isStandalonePwa(): boolean {
   )
 }
 
+/**
+ * Comment installer l'app dans le navigateur actuel :
+ * - 'prompt' : le navigateur propose l'installation (Chrome/Edge/Samsung sur Android, ordinateur)
+ * - 'in-app' : navigateur intégré à Facebook, Instagram ou Messenger (installation impossible)
+ * - 'ios' : iPhone/iPad (Partager → Sur l'écran d'accueil)
+ * - 'android' : autre navigateur Android (menu → Ajouter à l'écran d'accueil)
+ * - 'none' : déjà installée, ou ordinateur sans proposition d'installation
+ */
+export type InstallMethod = 'prompt' | 'in-app' | 'ios' | 'android' | 'none'
+
+export function detectInstallMethod(
+  userAgent: string = typeof navigator !== 'undefined' ? navigator.userAgent : '',
+  options: { standalone?: boolean; canPrompt?: boolean; touchMac?: boolean } = {},
+): InstallMethod {
+  const standalone = options.standalone ?? isStandalonePwa()
+  if (standalone) return 'none'
+  if (/FBAN|FBAV|FB_IAB|FBIOS|Instagram|Messenger/i.test(userAgent)) return 'in-app'
+  if (options.canPrompt ?? canPromptPwaInstall()) return 'prompt'
+  const touchMac =
+    options.touchMac ??
+    (typeof navigator !== 'undefined' &&
+      /Macintosh/.test(userAgent) &&
+      navigator.maxTouchPoints > 1)
+  if (/iPhone|iPad|iPod/i.test(userAgent) || touchMac) return 'ios'
+  if (/Android/i.test(userAgent)) return 'android'
+  return 'none'
+}
+
+export function isIosDevice(userAgent: string = navigator.userAgent): boolean {
+  return /iPhone|iPad|iPod/i.test(userAgent)
+}
+
 export async function promptPwaInstall(): Promise<'accepted' | 'dismissed' | 'unavailable'> {
   if (!deferredPrompt) return 'unavailable'
   await deferredPrompt.prompt()

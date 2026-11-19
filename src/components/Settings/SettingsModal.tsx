@@ -43,11 +43,13 @@ import {
 } from '../../utils/notifications'
 import {
   canPromptPwaInstall,
+  detectInstallMethod,
   isStandalonePwa,
   promptPwaInstall,
   subscribePwaInstall,
 } from '../../utils/pwaInstall'
 import { SetupScheduleModal } from '../Calendar/SetupScheduleModal'
+import { InstallInstructions } from '../Common/InstallBanner'
 import { SecondaryTreatmentFields } from '../Treatment/SecondaryTreatmentFields'
 import { TreatmentSelect } from '../Treatment/TreatmentSelect'
 
@@ -556,9 +558,17 @@ export function SettingsModal({ settings, onClose }: SettingsModalProps) {
                     </button>
                   ) : (
                     <p className="text-[11px] text-slate-500 dark:text-slate-400 text-center leading-relaxed">
-                      Pour installer l'appli : sur Android, menu <strong>⋮</strong> (descendre en
-                      bas) → <strong>Ajouter à l'écran d'accueil</strong> ; sur iPhone,{' '}
-                      <strong>Partager → Sur l'écran d'accueil</strong>.
+                      {detectInstallMethod() === 'none' ? (
+                        <>
+                          Pour installer l'appli : sur Android, menu <strong>⋮</strong> →{' '}
+                          <strong>Ajouter à l'écran d'accueil</strong> ; sur iPhone,{' '}
+                          <strong>Partager → Sur l'écran d'accueil</strong>.
+                        </>
+                      ) : (
+                        <>
+                          Pour installer l'appli : <InstallInstructions method={detectInstallMethod()} />
+                        </>
+                      )}
                     </p>
                   )}
                 </div>

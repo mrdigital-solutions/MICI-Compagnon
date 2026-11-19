@@ -11,11 +11,17 @@ export interface TreatmentPreset {
   isOral?: boolean
 }
 
-export const APP_VERSION = '1.4.1'
+export const APP_VERSION = '1.4.2'
 
 export const COPYRIGHT = '© 2026 MR Digital Solutions'
 
 export const CHANGELOG = [
+  {
+    version: '1.4.2 — 19 nov.',
+    items: [
+      'Installation plus simple : le bandeau « Installer » s’affiche maintenant sur tous les téléphones, avec la marche à suivre adaptée (iPhone, Android, ou lien ouvert depuis Facebook / Instagram).',
+    ],
+  },
   {
     version: '1.4 — 18 nov.',
     items: [

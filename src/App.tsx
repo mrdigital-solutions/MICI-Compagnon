@@ -1,4 +1,4 @@
-import { Moon, Settings, ShieldAlert, Smartphone, Sun, Wind, X } from 'lucide-react'
+import { Moon, Settings, ShieldAlert, Sun, Wind } from 'lucide-react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { Suspense, lazy, useEffect, useState } from 'react'
 import { CalendarTab } from './components/Calendar/CalendarTab'
@@ -12,6 +12,7 @@ import { BreathingModal } from './components/Wellness/BreathingModal'
 import { SupportBetaBubble } from './components/Wellness/SupportBetaBubble'
 import { TodayEventsBubble } from './components/Wellness/TodayEventsBubble'
 import { DbHealthBanner } from './components/Common/DbHealthBanner'
+import { InstallBanner } from './components/Common/InstallBanner'
 import { DEFAULT_SETTINGS, db, ensureDefaultSettings } from './db/database'
 import { quickWrite } from './db/dbHealth'
 import type { AppTab } from './types'
@@ -24,12 +25,6 @@ const LabsTab = lazy(() =>
 const ReportTab = lazy(() =>
   import('./components/Report/ReportTab').then((m) => ({ default: m.ReportTab })),
 )
-import {
-  canPromptPwaInstall,
-  isStandalonePwa,
-  promptPwaInstall,
-  subscribePwaInstall,
-} from './utils/pwaInstall'
 
 export function App() {
   const [activeTab, setActiveTab] = useState<AppTab>('calendar')
@@ -37,13 +32,6 @@ export function App() {
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [emergencyOpen, setEmergencyOpen] = useState(false)
   const [breathingOpen, setBreathingOpen] = useState(false)
-  const [canInstallPwa, setCanInstallPwa] = useState(() => canPromptPwaInstall())
-  const [installBannerDismissed, setInstallBannerDismissed] = useState(false)
-
-  useEffect(() => {
-    return subscribePwaInstall(() => setCanInstallPwa(canPromptPwaInstall()))
-  }, [])
-
   const settings = useLiveQuery(() => db.settings.get('default'), [])
   const nextPlanned = useLiveQuery(
     () => db.injections.where('status').equals('planned').sortBy('scheduledDate').then((r) => r[0]),
@@ -190,35 +178,7 @@ export function App() {
       </header>
 
       <main className="mx-auto max-w-5xl px-4 pt-5">
-        {canInstallPwa && !isStandalonePwa() && !installBannerDismissed && (
-          <div className="mb-4 rounded-2xl bg-white/85 dark:bg-slate-900/90 backdrop-blur-md border border-teal-200/80 dark:border-teal-800/60 p-3 shadow-xs flex items-center justify-between gap-3">
-            <div className="flex items-center gap-2.5 min-w-0">
-              <div className="p-2 rounded-xl bg-teal-500/15 text-teal-600 dark:text-teal-400 shrink-0">
-                <Smartphone className="w-4 h-4" />
-              </div>
-              <p className="text-xs font-semibold text-slate-800 dark:text-slate-100 truncate">
-                Installer MICI Compagnon sur votre écran d'accueil
-              </p>
-            </div>
-            <div className="flex items-center gap-1.5 shrink-0">
-              <button
-                type="button"
-                onClick={() => promptPwaInstall()}
-                className="px-3 py-1.5 rounded-xl bg-teal-600 hover:bg-teal-700 text-white text-xs font-semibold transition-colors"
-              >
-                Installer
-              </button>
-              <button
-                type="button"
-                onClick={() => setInstallBannerDismissed(true)}
-                aria-label="Fermer"
-                className="p-1.5 rounded-lg text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-          </div>
-        )}
+        <InstallBanner />
         {activeTab === 'calendar' && (
           <CalendarTab
             settings={currentSettings}

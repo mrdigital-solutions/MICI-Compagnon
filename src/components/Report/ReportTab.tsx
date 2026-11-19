@@ -7,6 +7,8 @@ import {
   Download,
   FileText,
   FlaskConical,
+  Gauge,
+  Scale,
   Syringe,
 } from 'lucide-react'
 import { useLiveQuery } from 'dexie-react-hooks'
@@ -15,6 +17,9 @@ import {
   Bar,
   BarChart,
   CartesianGrid,
+  Line,
+  LineChart,
+  ReferenceLine,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -22,6 +27,7 @@ import {
 } from 'recharts'
 import { DEFAULT_SETTINGS, db, getSiteLabel } from '../../db/database'
 import { formatDateFr, formatShortDateFr, toDateKey } from '../../utils/dateUtils'
+import { HBI_LEVEL_STYLES, getHbiLevel } from '../../utils/hbi'
 import {
   buildMedicalReport,
   exportReportToPdf,
@@ -234,7 +240,9 @@ export function ReportTab() {
                   className="text-xs px-3 py-2 rounded-xl bg-amber-50/70 dark:bg-amber-950/20 text-amber-900 dark:text-amber-200"
                 >
                   Prévue le {formatShortDateFr(inj.scheduledDate)} :{' '}
-                  <strong>+{inj.shiftDays} j</strong> ({inj.shiftReason || 'Report'})
+                  <strong>
+                    {inj.shiftDays && inj.shiftDays < 0 ? `avancée de ${-inj.shiftDays}` : `+${inj.shiftDays}`} j
+                  </strong> ({inj.shiftReason || 'Report'})
                 </div>
               ))}
             </div>
@@ -397,6 +405,161 @@ export function ReportTab() {
                 </span>
               ))}
             </div>
+          )}
+        </section>
+      </div>
+
+      {/* Score de Harvey-Bradshaw & Poids */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+        <section className="rounded-3xl bg-white/85 dark:bg-slate-900/90 backdrop-blur-md border border-white/90 dark:border-slate-800 p-5 shadow-[0_8px_30px_rgb(0,0,0,0.04)] space-y-3">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <Gauge className="w-4 h-4 text-teal-600 dark:text-teal-400" />
+              <h3 className="text-sm font-bold text-slate-900 dark:text-white">
+                Score de Harvey-Bradshaw
+              </h3>
+            </div>
+            {report.hbi && (
+              <span
+                className={`text-[11px] font-bold px-2.5 py-0.5 rounded-full ${
+                  HBI_LEVEL_STYLES[getHbiLevel(report.hbi.average).level]
+                }`}
+              >
+                {getHbiLevel(report.hbi.average).label}
+              </span>
+            )}
+          </div>
+
+          {!report.hbi ? (
+            <p className="text-xs text-slate-500 dark:text-slate-400">
+              Remplissez le journal pour voir l'évolution du score sur la période.
+            </p>
+          ) : (
+            <>
+              <div className="grid grid-cols-3 gap-2 text-center">
+                <div className="p-2.5 rounded-2xl bg-slate-50/90 dark:bg-slate-800/60">
+                  <p className="text-[11px] text-slate-500">Moyenne</p>
+                  <p className="text-lg font-extrabold text-slate-900 dark:text-white">{report.hbi.average}</p>
+                </div>
+                <div className="p-2.5 rounded-2xl bg-slate-50/90 dark:bg-slate-800/60">
+                  <p className="text-[11px] text-slate-500">Maximum</p>
+                  <p className="text-lg font-extrabold text-slate-900 dark:text-white">{report.hbi.max}</p>
+                </div>
+                <div className="p-2.5 rounded-2xl bg-slate-50/90 dark:bg-slate-800/60">
+                  <p className="text-[11px] text-slate-500">Rémission</p>
+                  <p className="text-lg font-extrabold text-emerald-700 dark:text-emerald-300">
+                    {report.hbi.remissionDays} j
+                  </p>
+                </div>
+              </div>
+              {report.hbi.points.length >= 2 && (
+                <div className="h-40 w-full">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart
+                      data={report.hbi.points.map((p) => ({ ...p, label: formatShortDateFr(p.date) }))}
+                      margin={{ top: 8, right: 12, left: -20, bottom: 0 }}
+                    >
+                      <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" opacity={0.6} />
+                      <XAxis dataKey="label" tick={{ fontSize: 10, fill: '#64748b' }} axisLine={false} tickLine={false} minTickGap={16} />
+                      <YAxis allowDecimals={false} tick={{ fontSize: 11, fill: '#64748b' }} axisLine={false} tickLine={false} />
+                      <ReferenceLine y={5} stroke="#f59e0b" strokeDasharray="4 4" />
+                      <Tooltip
+                        contentStyle={{ borderRadius: '14px', border: '1px solid #e2e8f0', fontSize: '12px' }}
+                        formatter={(value) => [String(value), 'Score']}
+                      />
+                      <Line type="monotone" dataKey="score" stroke="#0d9488" strokeWidth={2} dot={{ r: 2.5 }} />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
+              )}
+              <p className="text-[10px] leading-relaxed text-slate-400">
+                Estimation calculée avec le journal (la palpation du ventre par le médecin n'est pas incluse).
+                Moins de 5 : rémission · 5 à 7 : légère · 8 à 16 : modérée · plus de 16 : sévère.
+              </p>
+            </>
+          )}
+        </section>
+
+        <section className="rounded-3xl bg-white/85 dark:bg-slate-900/90 backdrop-blur-md border border-white/90 dark:border-slate-800 p-5 shadow-[0_8px_30px_rgb(0,0,0,0.04)] space-y-3">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <Scale className="w-4 h-4 text-teal-600 dark:text-teal-400" />
+              <h3 className="text-sm font-bold text-slate-900 dark:text-white">Poids</h3>
+            </div>
+            {report.weight?.significantLoss && (
+              <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-rose-500/15 text-rose-700 dark:text-rose-300">
+                <AlertTriangle className="w-3 h-3" />
+                Perte ≥ 5 %
+              </span>
+            )}
+          </div>
+
+          {!report.weight ? (
+            <p className="text-xs text-slate-500 dark:text-slate-400">
+              Notez votre poids dans le journal (une fois par semaine suffit) pour suivre son évolution.
+            </p>
+          ) : (
+            <>
+              <div className="grid grid-cols-3 gap-2 text-center">
+                <div className="p-2.5 rounded-2xl bg-slate-50/90 dark:bg-slate-800/60">
+                  <p className="text-[11px] text-slate-500">Début</p>
+                  <p className="text-lg font-extrabold text-slate-900 dark:text-white">{report.weight.firstKg}</p>
+                  <p className="text-[10px] text-slate-400">kg</p>
+                </div>
+                <div className="p-2.5 rounded-2xl bg-slate-50/90 dark:bg-slate-800/60">
+                  <p className="text-[11px] text-slate-500">Dernier</p>
+                  <p className="text-lg font-extrabold text-slate-900 dark:text-white">{report.weight.lastKg}</p>
+                  <p className="text-[10px] text-slate-400">kg</p>
+                </div>
+                <div className="p-2.5 rounded-2xl bg-slate-50/90 dark:bg-slate-800/60">
+                  <p className="text-[11px] text-slate-500">Évolution</p>
+                  <p
+                    className={`text-lg font-extrabold ${
+                      report.weight.significantLoss
+                        ? 'text-rose-600 dark:text-rose-400'
+                        : 'text-slate-900 dark:text-white'
+                    }`}
+                  >
+                    {report.weight.changeKg > 0 ? '+' : ''}
+                    {report.weight.changeKg}
+                  </p>
+                  <p className="text-[10px] text-slate-400">
+                    kg ({report.weight.changePercent > 0 ? '+' : ''}
+                    {report.weight.changePercent} %)
+                  </p>
+                </div>
+              </div>
+              {report.weight.points.length >= 2 && (
+                <div className="h-40 w-full">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart
+                      data={report.weight.points.map((p) => ({ ...p, label: formatShortDateFr(p.date) }))}
+                      margin={{ top: 8, right: 12, left: -12, bottom: 0 }}
+                    >
+                      <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" opacity={0.6} />
+                      <XAxis dataKey="label" tick={{ fontSize: 10, fill: '#64748b' }} axisLine={false} tickLine={false} minTickGap={16} />
+                      <YAxis
+                        domain={['dataMin - 2', 'dataMax + 2']}
+                        allowDecimals={false}
+                        tick={{ fontSize: 11, fill: '#64748b' }}
+                        axisLine={false}
+                        tickLine={false}
+                      />
+                      <Tooltip
+                        contentStyle={{ borderRadius: '14px', border: '1px solid #e2e8f0', fontSize: '12px' }}
+                        formatter={(value) => [`${value} kg`, 'Poids']}
+                      />
+                      <Line type="monotone" dataKey="weightKg" stroke="#0d9488" strokeWidth={2} dot={{ r: 3 }} />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
+              )}
+              {report.weight.significantLoss && (
+                <p className="text-[11px] text-rose-700 dark:text-rose-300">
+                  Une perte de 5 % ou plus en peu de temps est à signaler à votre gastro-entérologue.
+                </p>
+              )}
+            </>
           )}
         </section>
       </div>

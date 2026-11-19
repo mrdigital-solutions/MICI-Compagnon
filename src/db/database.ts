@@ -7,6 +7,7 @@ import {
   type InjectionSite,
   type InjectionZonePreference,
   type LabResult,
+  type VaccinationRecord,
 } from '../types'
 import { addDays, getTodayKey } from '../utils/dateUtils'
 import { getDbHealth, setDbHealth } from './dbHealth'
@@ -338,7 +339,7 @@ export async function shiftInjectionAndRecalculate(params: {
       status: 'planned',
       site: rollingSite,
       doseMg: target.doseMg,
-      notes: `Reportée de ${shiftDays > 0 ? `+${shiftDays}` : shiftDays} j (${reason.trim() || 'Report manuel'})`,
+      notes: `${shiftDays > 0 ? `Reportée de ${shiftDays}` : `Avancée de ${-shiftDays}`} j (${reason.trim() || 'Report manuel'})`,
       createdAt: nowIso,
     })
 
@@ -621,6 +622,10 @@ export function parseBackupJson(jsonText: string): ParsedBackup {
       digestivePain: optionalNumber(raw.digestivePain) ?? 0,
       jointPain: optionalNumber(raw.jointPain) ?? 0,
       fatigue: optionalNumber(raw.fatigue) ?? 0,
+      weightKg: optionalNumber(raw.weightKg),
+      crohnSigns: Array.isArray(raw.crohnSigns)
+        ? raw.crohnSigns.filter((s) => typeof s === 'string')
+        : undefined,
       feverOrInfection: raw.feverOrInfection === true,
       tags: Array.isArray(raw.tags) ? raw.tags.filter((t) => typeof t === 'string') : [],
       notes: typeof raw.notes === 'string' ? raw.notes : '',
@@ -642,9 +647,19 @@ export function parseBackupJson(jsonText: string): ParsedBackup {
     if (!isRecord(raw) || typeof raw.id !== 'string') {
       throw new BackupFormatError(`Paramètres n°${i + 1} invalides.`)
     }
+    const vaccinations = Array.isArray(raw.vaccinations)
+      ? raw.vaccinations.filter(
+          (v): v is VaccinationRecord =>
+            isRecord(v) &&
+            typeof v.id === 'string' &&
+            typeof v.vaccine === 'string' &&
+            isDateKey(v.date),
+        )
+      : undefined
     return {
       ...DEFAULT_SETTINGS,
       ...raw,
+      vaccinations,
       priorityCardBlob: decodeBlob(raw.priorityCardBlob),
     } as AppSettings
   })

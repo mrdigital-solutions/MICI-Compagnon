@@ -3,6 +3,8 @@ import { DEFAULT_SETTINGS } from '../db/database'
 import type { DailyEntry, InjectionRecord } from '../types'
 import {
   buildEndOfDoseBuckets,
+  buildHbiSummary,
+  buildWeightSummary,
   buildMedicalReport,
   formatReportAsText,
   toPdfSafeText,
@@ -99,5 +101,26 @@ describe('toPdfSafeText', () => {
   it('remplace les caractères absents de la police PDF', () => {
     expect(toPdfSafeText('A → B ≥ 3')).toBe('A -> B >= 3')
     expect(toPdfSafeText('Fièvre — µg/g • ok')).toBe('Fièvre — µg/g • ok')
+  })
+})
+
+describe('poids et score dans le rapport', () => {
+  it('signale une perte de poids de 5 % ou plus', () => {
+    const w = buildWeightSummary([
+      { ...entry('2026-11-01', 0), weightKg: 70 },
+      { ...entry('2026-11-10', 0) },
+      { ...entry('2026-11-20', 0), weightKg: 66.5 },
+    ])
+    expect(w).toMatchObject({ firstKg: 70, lastKg: 66.5, changeKg: -3.5, changePercent: -5, significantLoss: true })
+  })
+
+  it("n'affiche rien sans poids saisi", () => {
+    expect(buildWeightSummary([entry('2026-11-01', 2)])).toBeUndefined()
+  })
+
+  it('calcule le score moyen et les jours en rémission', () => {
+    const h = buildHbiSummary([entry('2026-11-01', 0), entry('2026-11-02', 5)])
+    // jour 2 : état général 4 + douleur 3 + arthralgie 1 = 8
+    expect(h).toMatchObject({ average: 4, max: 8, remissionDays: 1, activeDays: 1 })
   })
 })

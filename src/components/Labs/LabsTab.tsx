@@ -22,6 +22,7 @@ import {
   type LabMarkerKey,
 } from '../../utils/labParser'
 import { ImportLabModal } from './ImportLabModal'
+import { VaccinationSection } from './VaccinationSection'
 
 function isValidLabNumber(val: unknown): val is number {
   return typeof val === 'number' && Number.isFinite(val)
@@ -349,6 +350,8 @@ export function LabsTab() {
           </div>
         )}
       </section>
+
+      <VaccinationSection />
 
       {modalMode && (
         <ImportLabModal

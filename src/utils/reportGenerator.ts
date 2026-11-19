@@ -1,6 +1,8 @@
 import { COPYRIGHT } from '../config/support'
 import { getSiteLabel } from '../db/database'
 import type { AppSettings, DailyEntry, InjectionRecord, LabResult } from '../types'
+import { computeHbi, getHbiLevel } from './hbi'
+import { VACCINE_PRESETS, getVaccineStatus } from './vaccines'
 import { diffDays, formatDateFr, formatShortDateFr } from './dateUtils'
 import { LAB_MARKERS, getMarkerRange, isMarkerOutOfRange, type LabMarkerMeta } from './labParser'
 import { isOralTreatment } from './treatment'
@@ -26,6 +28,31 @@ export interface EndOfDoseBucket {
   label: string
   avgScore: number
   daysCount: number
+}
+
+export interface WeightSummary {
+  points: { date: string; weightKg: number }[]
+  firstKg: number
+  lastKg: number
+  changeKg: number
+  changePercent: number
+  /** Perte d'au moins 5 % sur la période : signal à signaler au médecin */
+  significantLoss: boolean
+}
+
+export interface HbiSummary {
+  points: { date: string; score: number }[]
+  average: number
+  max: number
+  remissionDays: number
+  activeDays: number
+}
+
+export interface VaccineReportLine {
+  name: string
+  lastDate?: string
+  status: string
+  toDo: boolean
 }
 
 export interface MedicalReportSummary {
@@ -57,6 +84,45 @@ export interface MedicalReportSummary {
   topSuspectedFoods: { food: string; count: number }[]
   topTags: { tag: string; count: number }[]
   labComparisons: LabComparisonItem[]
+  weight?: WeightSummary
+  hbi?: HbiSummary
+  vaccines: VaccineReportLine[]
+}
+
+export function buildWeightSummary(entries: DailyEntry[]): WeightSummary | undefined {
+  const points = entries
+    .filter((e) => typeof e.weightKg === 'number' && Number.isFinite(e.weightKg))
+    .sort((a, b) => a.date.localeCompare(b.date))
+    .map((e) => ({ date: e.date, weightKg: e.weightKg! }))
+  if (points.length === 0) return undefined
+  const firstKg = points[0].weightKg
+  const lastKg = points[points.length - 1].weightKg
+  const changeKg = round1(lastKg - firstKg)
+  const changePercent = round1((changeKg / firstKg) * 100)
+  return {
+    points,
+    firstKg,
+    lastKg,
+    changeKg,
+    changePercent,
+    significantLoss: points.length >= 2 && changePercent <= -5,
+  }
+}
+
+export function buildHbiSummary(entries: DailyEntry[]): HbiSummary | undefined {
+  if (entries.length === 0) return undefined
+  const points = [...entries]
+    .sort((a, b) => a.date.localeCompare(b.date))
+    .map((e) => ({ date: e.date, score: computeHbi(e).score }))
+  const scores = points.map((p) => p.score)
+  const remissionDays = scores.filter((s) => s < 5).length
+  return {
+    points,
+    average: round1(scores.reduce((a, b) => a + b, 0) / scores.length),
+    max: Math.max(...scores),
+    remissionDays,
+    activeDays: scores.length - remissionDays,
+  }
 }
 
 function round1(n: number): number {
@@ -266,6 +332,27 @@ export function buildMedicalReport(params: {
     })
   }
 
+  const vaccineRecords = settings.vaccinations ?? []
+  const vaccines: VaccineReportLine[] = VACCINE_PRESETS.map((preset) => {
+    const status = getVaccineStatus(preset, vaccineRecords, endDate)
+    return {
+      name: preset.name,
+      lastDate: status.lastDate,
+      status: status.text,
+      toDo: status.tone === 'todo',
+    }
+  })
+  const presetNames = new Set(VACCINE_PRESETS.map((p) => p.name))
+  const otherVaccines = new Map<string, string>()
+  for (const r of vaccineRecords) {
+    if (presetNames.has(r.vaccine) || r.date > endDate) continue
+    const prev = otherVaccines.get(r.vaccine)
+    if (!prev || r.date > prev) otherVaccines.set(r.vaccine, r.date)
+  }
+  for (const [name, lastDate] of otherVaccines) {
+    vaccines.push({ name, lastDate, status: 'Fait', toDo: false })
+  }
+
   return {
     startDate,
     endDate,
@@ -295,6 +382,9 @@ export function buildMedicalReport(params: {
     topSuspectedFoods,
     topTags,
     labComparisons,
+    weight: buildWeightSummary(periodEntries),
+    hbi: buildHbiSummary(periodEntries),
+    vaccines,
   }
 }
 
@@ -368,6 +458,22 @@ export function formatReportAsText(report: MedicalReportSummary): string {
       `- Facteurs fréquents : ${report.topTags.map((t) => `${t.tag} (${t.count}x)`).join(', ')}`,
     )
   }
+  if (report.hbi) {
+    lines.push(
+      `- Score de Harvey-Bradshaw estimé (journal) : moyenne ${report.hbi.average} (${getHbiLevel(report.hbi.average).label.toLowerCase()}), maximum ${report.hbi.max} ; ${report.hbi.remissionDays} j en rémission (< 5), ${report.hbi.activeDays} j avec activité`,
+    )
+  }
+  if (report.weight) {
+    const w = report.weight
+    if (w.points.length >= 2) {
+      const sign = w.changeKg > 0 ? '+' : ''
+      lines.push(
+        `- Poids : ${w.firstKg} kg (${formatShortDateFr(w.points[0].date)}) -> ${w.lastKg} kg (${formatShortDateFr(w.points[w.points.length - 1].date)}), soit ${sign}${w.changeKg} kg (${sign}${w.changePercent} %)${w.significantLoss ? ' [Perte de poids >= 5 %]' : ''}`,
+      )
+    } else {
+      lines.push(`- Poids : ${w.lastKg} kg (${formatShortDateFr(w.points[0].date)})`)
+    }
+  }
   lines.push('')
 
   lines.push('3. BILANS BIOLOGIQUES RÉCENTS')
@@ -387,6 +493,16 @@ export function formatReportAsText(report: MedicalReportSummary): string {
     lines.push(
       '  Valeurs de référence indicatives : seules celles du laboratoire font foi.',
     )
+  }
+
+  // La section n'apparaît que si le carnet de vaccination est utilisé
+  if (report.vaccines.some((v) => v.lastDate)) {
+    lines.push('')
+    lines.push('4. VACCINATIONS')
+    for (const v of report.vaccines) {
+      const last = v.lastDate ? `dernier le ${formatShortDateFr(v.lastDate)}` : 'aucune date enregistrée'
+      lines.push(`- ${v.name} : ${last} — ${v.status}`)
+    }
   }
 
   return lines.join('\n')

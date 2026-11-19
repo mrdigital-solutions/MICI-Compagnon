@@ -11,11 +11,21 @@ export interface TreatmentPreset {
   isOral?: boolean
 }
 
-export const APP_VERSION = '1.4.2'
+export const APP_VERSION = '1.5.0'
 
 export const COPYRIGHT = '© 2026 MR Digital Solutions'
 
 export const CHANGELOG = [
+  {
+    version: '1.5 — 20 nov.',
+    items: [
+      'Suivi du poids : notez votre poids dans le journal, le Rapport Médecin affiche son évolution et signale une perte de 5 % ou plus.',
+      'Score de Harvey-Bradshaw : calculé automatiquement à partir du journal (avec les nouveaux « Autres signes » : aphtes, fissure, fistule…), avec sa courbe dans le Rapport.',
+      'Carnet de vaccination (onglet Bilans) : grippe, Covid, pneumocoque, zona, DTP, hépatite B, avec les rappels à faire et la liste des vaccins vivants interdits sous traitement.',
+      'Décaler une injection : on peut maintenant l’avancer, pas seulement la reporter. Une injection en retard ne peut plus être reportée à une date déjà passée.',
+      'Paramètres : stock de stylos et prochains rendez-vous mieux présentés.',
+    ],
+  },
   {
     version: '1.4.2 — 19 nov.',
     items: [

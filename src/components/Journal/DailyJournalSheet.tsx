@@ -1,10 +1,12 @@
-import { Check, Droplets, Flame, Minus, Plus, Thermometer, Utensils, X } from 'lucide-react'
+import { Check, Droplets, Flame, Gauge, Minus, Plus, Scale, Thermometer, Utensils, X } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { db, upsertDailyEntry } from '../../db/database'
 import { describeSaveError, withSaveTimeout } from '../../db/dbHealth'
 import { SaveError } from '../Common/SaveError'
 import {
+  CROHN_SIGNS,
   QUICK_TAGS,
+  type CrohnSign,
   SUSPECTED_FOOD_PRESETS,
   type DailyEntry,
   type MoodLevel,
@@ -12,12 +14,20 @@ import {
   type StoolConsistency,
 } from '../../types'
 import { formatDateFr } from '../../utils/dateUtils'
+import { HBI_LEVEL_STYLES, computeHbi, getHbiLevel } from '../../utils/hbi'
 
 interface DailyJournalFormProps {
   dateKey: string
   onSaved?: () => void
   onClose?: () => void
   isModal?: boolean
+}
+
+/** Accepte « 72,5 » ou « 72.5 » ; renvoie undefined si vide ou hors plage plausible. */
+function parseWeight(input: string): number | undefined {
+  const value = Number(input.trim().replace(',', '.'))
+  if (!input.trim() || !Number.isFinite(value) || value < 20 || value > 300) return undefined
+  return Math.round(value * 10) / 10
 }
 
 const SLIDER_LEVELS = ['Aucune', 'Très légère', 'Légère', 'Modérée', 'Forte', 'Sévère']
@@ -76,6 +86,8 @@ export function DailyJournalForm({
   const [waterGlasses, setWaterGlasses] = useState<number>(4)
   const [suspectedFoods, setSuspectedFoods] = useState<string[]>([])
   const [customFood, setCustomFood] = useState('')
+  const [weightInput, setWeightInput] = useState('')
+  const [crohnSigns, setCrohnSigns] = useState<CrohnSign[]>([])
   const [tags, setTags] = useState<string[]>([])
   const [customTag, setCustomTag] = useState('')
   const [notes, setNotes] = useState('')
@@ -101,6 +113,8 @@ export function DailyJournalForm({
         setSleepQuality(entry.sleepQuality)
         setWaterGlasses(entry.waterGlasses ?? 4)
         setSuspectedFoods(entry.suspectedFoods ?? [])
+        setWeightInput(entry.weightKg !== undefined ? String(entry.weightKg).replace('.', ',') : '')
+        setCrohnSigns(entry.crohnSigns ?? [])
         setTags(entry.tags ?? [])
         setNotes(entry.notes ?? '')
       } else {
@@ -117,6 +131,8 @@ export function DailyJournalForm({
         setSleepQuality(undefined)
         setWaterGlasses(4)
         setSuspectedFoods([])
+        setWeightInput('')
+        setCrohnSigns([])
         setTags([])
         setNotes('')
       }
@@ -154,8 +170,18 @@ export function DailyJournalForm({
     setCustomFood('')
   }
 
+  function toggleSign(sign: CrohnSign) {
+    setCrohnSigns((prev) => (prev.includes(sign) ? prev.filter((s) => s !== sign) : [...prev, sign]))
+  }
+
+  const weightKg = parseWeight(weightInput)
+  const weightInvalid = weightInput.trim() !== '' && weightKg === undefined
+  const hbi = computeHbi({ fatigue, digestivePain, jointPain, stoolCount, stoolConsistency, crohnSigns })
+  const hbiLevel = getHbiLevel(hbi.score)
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
+    if (weightInvalid) return
     setSaving(true)
     setSaveError(null)
     try {
@@ -175,6 +201,8 @@ export function DailyJournalForm({
         sleepQuality,
         waterGlasses,
         suspectedFoods,
+        weightKg,
+        crohnSigns,
         tags,
         notes: notes.trim(),
       }),
@@ -326,6 +354,75 @@ export function DailyJournalForm({
           </button>
         </div>
       </div>
+
+      {/* Signes associés (score de Harvey-Bradshaw) */}
+      <div className="p-3.5 rounded-2xl bg-slate-50/90 dark:bg-slate-800/50 border border-slate-200/70 dark:border-slate-700/60 space-y-2.5">
+        <div>
+          <span className="block text-sm font-semibold text-slate-800 dark:text-slate-100">
+            Autres signes aujourd'hui
+          </span>
+          <span className="block text-[11px] text-slate-500 dark:text-slate-400">
+            Facultatif · cochez seulement si présent
+          </span>
+        </div>
+        <div className="flex flex-wrap gap-1.5">
+          {CROHN_SIGNS.map((sign) => {
+            const active = crohnSigns.includes(sign.id)
+            return (
+              <button
+                key={sign.id}
+                type="button"
+                title={sign.hint}
+                onClick={() => toggleSign(sign.id)}
+                className={`px-2.5 py-1 rounded-full text-xs font-medium border transition-colors ${
+                  active
+                    ? 'bg-rose-500/15 border-rose-400 text-rose-700 dark:text-rose-300'
+                    : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300'
+                }`}
+              >
+                {sign.label}
+              </button>
+            )
+          })}
+        </div>
+        {crohnSigns.includes('uveite') && (
+          <p className="text-[11px] text-rose-700 dark:text-rose-300">
+            Un œil rouge et douloureux doit être montré rapidement à un médecin.
+          </p>
+        )}
+      </div>
+
+      {/* Poids */}
+      <label className="flex items-center justify-between gap-3 p-3.5 rounded-2xl bg-slate-50/90 dark:bg-slate-800/50 border border-slate-200/70 dark:border-slate-700/60">
+        <span className="flex items-center gap-2.5">
+          <Scale className="w-4 h-4 text-teal-600 dark:text-teal-400" />
+          <span>
+            <span className="block text-sm font-semibold text-slate-800 dark:text-slate-100">Poids</span>
+            <span className="block text-[11px] text-slate-500 dark:text-slate-400">
+              Facultatif · une fois par semaine suffit
+            </span>
+          </span>
+        </span>
+        <span className="flex items-center gap-1.5 shrink-0">
+          <input
+            type="text"
+            inputMode="decimal"
+            value={weightInput}
+            onChange={(e) => setWeightInput(e.target.value)}
+            placeholder="—"
+            aria-invalid={weightInvalid}
+            className={`w-20 px-2 py-1.5 rounded-lg border bg-white dark:bg-slate-900 text-sm font-semibold text-center text-slate-900 dark:text-white ${
+              weightInvalid ? 'border-rose-400' : 'border-slate-200 dark:border-slate-700'
+            }`}
+          />
+          <span className="text-sm text-slate-500 dark:text-slate-400">kg</span>
+        </span>
+      </label>
+      {weightInvalid && (
+        <p className="-mt-3 text-[11px] text-rose-600 dark:text-rose-400">
+          Poids non reconnu : écrivez par exemple 72,5.
+        </p>
+      )}
 
       {/* Fever / Infection toggle */}
       <button
@@ -564,11 +661,34 @@ export function DailyJournalForm({
         />
       </div>
 
+      {/* Score de Harvey-Bradshaw estimé */}
+      <div className="flex items-center justify-between gap-3 p-3.5 rounded-2xl bg-slate-50/90 dark:bg-slate-800/50 border border-slate-200/70 dark:border-slate-700/60">
+        <div className="flex items-center gap-2.5 min-w-0">
+          <Gauge className="w-4 h-4 shrink-0 text-teal-600 dark:text-teal-400" />
+          <div className="min-w-0">
+            <p className="text-sm font-semibold text-slate-800 dark:text-slate-100">
+              Score de Harvey-Bradshaw
+            </p>
+            <p className="text-[11px] leading-snug text-slate-500 dark:text-slate-400">
+              Estimation pour la maladie de Crohn, calculée avec ce journal. Ne remplace pas l'avis du médecin.
+            </p>
+          </div>
+        </div>
+        <div className="text-right shrink-0">
+          <p className="text-xl font-extrabold text-slate-900 dark:text-white">{hbi.score}</p>
+          <span
+            className={`inline-block text-[10px] font-bold px-2 py-0.5 rounded-full ${HBI_LEVEL_STYLES[hbiLevel.level]}`}
+          >
+            {hbiLevel.label}
+          </span>
+        </div>
+      </div>
+
       <SaveError message={saveError} />
 
       <button
         type="submit"
-        disabled={saving}
+        disabled={saving || weightInvalid}
         className="w-full py-3.5 rounded-2xl bg-teal-600 hover:bg-teal-700 disabled:opacity-50 text-white font-semibold text-sm shadow-sm transition-colors flex items-center justify-center gap-2"
       >
         {savedToast ? (

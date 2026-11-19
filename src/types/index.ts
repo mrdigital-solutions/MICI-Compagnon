@@ -60,9 +60,44 @@ export interface DailyEntry {
   sleepQuality?: SleepQuality
   waterGlasses?: number
   suspectedFoods?: string[]
+  /** Poids du jour en kg (facultatif) */
+  weightKg?: number
+  /** Signes extra-digestifs / complications (utilisés par le score de Harvey-Bradshaw) */
+  crohnSigns?: CrohnSign[]
   tags: string[]
   notes: string
   updatedAt: string
+}
+
+/**
+ * Complications comptées dans le score de Harvey-Bradshaw (1 point chacune).
+ * Les douleurs articulaires viennent déjà du curseur « Douleurs articulaires ».
+ */
+export type CrohnSign =
+  | 'aphtes'
+  | 'fissure_anale'
+  | 'fistule'
+  | 'abces'
+  | 'erytheme_noueux'
+  | 'uveite'
+  | 'pyoderma'
+
+export const CROHN_SIGNS: { id: CrohnSign; label: string; hint?: string }[] = [
+  { id: 'aphtes', label: 'Aphtes dans la bouche' },
+  { id: 'fissure_anale', label: 'Fissure anale' },
+  { id: 'fistule', label: 'Nouvelle fistule' },
+  { id: 'abces', label: 'Abcès' },
+  { id: 'erytheme_noueux', label: 'Érythème noueux', hint: 'Bosses rouges douloureuses sur les jambes' },
+  { id: 'uveite', label: 'Œil rouge / douloureux', hint: 'Possible uvéite : à montrer rapidement à un médecin' },
+  { id: 'pyoderma', label: 'Plaie de peau qui s’étend', hint: 'Pyoderma gangrenosum' },
+]
+
+/** Vaccin enregistré dans le carnet */
+export interface VaccinationRecord {
+  id: string
+  vaccine: string
+  date: string // YYYY-MM-DD
+  notes?: string
 }
 
 export const QUICK_TAGS = [
@@ -135,6 +170,8 @@ export interface AppSettings {
   secondaryNextDate?: string
   /** Sexe biologique : sert uniquement à choisir les valeurs de référence des bilans */
   patientSex?: PatientSex
+  /** Carnet de vaccination */
+  vaccinations?: VaccinationRecord[]
 }
 
 export type PatientSex = 'F' | 'M'

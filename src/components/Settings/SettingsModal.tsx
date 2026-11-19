@@ -363,42 +363,41 @@ export function SettingsModal({ settings, onClose }: SettingsModalProps) {
                     </p>
                   </div>
                 )}
-                <div className="grid grid-cols-2 gap-2.5">
-                  <div className={isOralTreatment(treatmentName) ? 'hidden' : ''}>
-                    <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1">
-                      Stock stylos
+                <div className="space-y-2">
+                  <p className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                    Stock & rendez-vous
+                  </p>
+                  {!isOralTreatment(treatmentName) && (
+                    <label className="flex items-center justify-between gap-3 p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/50 text-sm">
+                      <span>Stylos en stock</span>
+                      <input
+                        type="number"
+                        min={0}
+                        max={30}
+                        value={penStock}
+                        onChange={(e) => setPenStock(Number(e.target.value))}
+                        className="w-16 px-2 py-1 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm font-semibold text-center"
+                      />
                     </label>
-                    <input
-                      type="number"
-                      min={0}
-                      max={30}
-                      value={penStock}
-                      onChange={(e) => setPenStock(Number(e.target.value))}
-                      className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-sm font-semibold text-slate-900 dark:text-white"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1">
-                      Prochain RDV Gastro
-                    </label>
+                  )}
+                  <label className="flex items-center justify-between gap-3 p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/50 text-sm">
+                    <span className="min-w-0 leading-snug">Prochain RDV gastro</span>
                     <input
                       type="date"
                       value={nextDoctorAppointment}
                       onChange={(e) => setNextDoctorAppointment(e.target.value)}
-                      className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs font-semibold text-slate-900 dark:text-white"
+                      className="shrink-0 px-2 py-1 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm font-semibold"
                     />
-                  </div>
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1">
-                    Prochaine prise de sang
                   </label>
-                  <input
-                    type="date"
-                    value={nextLabDate}
-                    onChange={(e) => setNextLabDate(e.target.value)}
-                    className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs font-semibold text-slate-900 dark:text-white"
-                  />
+                  <label className="flex items-center justify-between gap-3 p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/50 text-sm">
+                    <span className="min-w-0 leading-snug">Prise de sang</span>
+                    <input
+                      type="date"
+                      value={nextLabDate}
+                      onChange={(e) => setNextLabDate(e.target.value)}
+                      className="shrink-0 px-2 py-1 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm font-semibold"
+                    />
+                  </label>
                 </div>
                 <div>
                   <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1">

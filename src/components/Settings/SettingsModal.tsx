@@ -43,13 +43,12 @@ import {
 } from '../../utils/notifications'
 import {
   canPromptPwaInstall,
-  detectInstallMethod,
   isStandalonePwa,
   promptPwaInstall,
   subscribePwaInstall,
 } from '../../utils/pwaInstall'
 import { SetupScheduleModal } from '../Calendar/SetupScheduleModal'
-import { InstallInstructions } from '../Common/InstallBanner'
+import { InstallHelp } from '../Common/InstallHelp'
 import { SecondaryTreatmentFields } from '../Treatment/SecondaryTreatmentFields'
 import { TreatmentSelect } from '../Treatment/TreatmentSelect'
 
@@ -547,7 +546,7 @@ export function SettingsModal({ settings, onClose }: SettingsModalProps) {
               {/* Install PWA button (when not already running standalone) */}
               {!isStandalonePwa() && (
                 <div className="pt-3 border-t border-slate-100 dark:border-slate-800 space-y-1.5">
-                  {canInstall ? (
+                  {canInstall && (
                     <button
                       type="button"
                       onClick={() => promptPwaInstall()}
@@ -556,21 +555,8 @@ export function SettingsModal({ settings, onClose }: SettingsModalProps) {
                       <Smartphone className="w-4 h-4" />
                       Installer l'application sur l'écran d'accueil
                     </button>
-                  ) : (
-                    <p className="text-[11px] text-slate-500 dark:text-slate-400 text-center leading-relaxed">
-                      {detectInstallMethod() === 'none' ? (
-                        <>
-                          Pour installer l'appli : sur Android, menu <strong>⋮</strong> →{' '}
-                          <strong>Ajouter à l'écran d'accueil</strong> ; sur iPhone,{' '}
-                          <strong>Partager → Sur l'écran d'accueil</strong>.
-                        </>
-                      ) : (
-                        <>
-                          Pour installer l'appli : <InstallInstructions method={detectInstallMethod()} />
-                        </>
-                      )}
-                    </p>
                   )}
+                  <InstallHelp />
                 </div>
               )}
 

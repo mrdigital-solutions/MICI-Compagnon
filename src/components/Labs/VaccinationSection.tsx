@@ -5,6 +5,7 @@ import { db } from '../../db/database'
 import { quickWrite } from '../../db/dbHealth'
 import type { VaccinationRecord } from '../../types'
 import { formatShortDateFr, getTodayKey } from '../../utils/dateUtils'
+import { newId } from '../../utils/id'
 import {
   LIVE_VACCINES,
   VACCINE_PRESETS,
@@ -18,12 +19,6 @@ const TONE_STYLES: Record<VaccineStatusTone, string> = {
   ok: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300',
   todo: 'bg-amber-500/15 text-amber-800 dark:text-amber-300',
   info: 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300',
-}
-
-function newId(): string {
-  return typeof crypto !== 'undefined' && 'randomUUID' in crypto
-    ? crypto.randomUUID()
-    : `${Date.now()}-${Math.random().toString(36).slice(2)}`
 }
 
 export function VaccinationSection() {

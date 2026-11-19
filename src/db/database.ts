@@ -7,6 +7,8 @@ import {
   type InjectionSite,
   type InjectionZonePreference,
   type LabResult,
+  type DoctorQuestion,
+  type MemoNote,
   type VaccinationRecord,
 } from '../types'
 import { addDays, getTodayKey } from '../utils/dateUtils'
@@ -656,10 +658,32 @@ export function parseBackupJson(jsonText: string): ParsedBackup {
             isDateKey(v.date),
         )
       : undefined
+    const doctorQuestions = Array.isArray(raw.doctorQuestions)
+      ? raw.doctorQuestions.filter(
+          (q): q is DoctorQuestion =>
+            isRecord(q) &&
+            typeof q.id === 'string' &&
+            typeof q.text === 'string' &&
+            isDateKey(q.createdAt) &&
+            (q.askedAt === undefined || isDateKey(q.askedAt)),
+        )
+      : undefined
+    const memoNotes = Array.isArray(raw.memoNotes)
+      ? raw.memoNotes.filter(
+          (m): m is MemoNote =>
+            isRecord(m) &&
+            typeof m.id === 'string' &&
+            typeof m.text === 'string' &&
+            typeof m.createdAt === 'string' &&
+            typeof m.updatedAt === 'string',
+        )
+      : undefined
     return {
       ...DEFAULT_SETTINGS,
       ...raw,
       vaccinations,
+      doctorQuestions,
+      memoNotes,
       priorityCardBlob: decodeBlob(raw.priorityCardBlob),
     } as AppSettings
   })

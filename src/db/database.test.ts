@@ -182,6 +182,30 @@ describe('sauvegarde et restauration', () => {
     expect(parsed.labResults[0].pdfBlob).toBeUndefined()
     expect(parsed.settings[0].reminderHour).toBe('09:00')
   })
+
+  it('garde le poids, les vaccins, les questions et les notes, en écartant les entrées invalides', () => {
+    const json = JSON.stringify({
+      version: 2,
+      app: 'mici-compagnon',
+      data: {
+        dailyEntries: [{ date: '2026-11-01', weightKg: 71.5, crohnSigns: ['aphtes', 3] }],
+        settings: [
+          {
+            id: 'default',
+            vaccinations: [{ id: 'v', vaccine: 'Grippe', date: '2026-10-10' }, { id: 'x', vaccine: 'Grippe' }],
+            doctorQuestions: [{ id: 'q', text: 'Question ?', createdAt: '2026-11-02' }, { text: 'sans id' }],
+            memoNotes: [{ id: 'm', text: 'Note', createdAt: 'a', updatedAt: 'b' }, 'texte'],
+          },
+        ],
+      },
+    })
+    const parsed = parseBackupJson(json)
+    expect(parsed.dailyEntries[0].weightKg).toBe(71.5)
+    expect(parsed.dailyEntries[0].crohnSigns).toEqual(['aphtes'])
+    expect(parsed.settings[0].vaccinations).toHaveLength(1)
+    expect(parsed.settings[0].doctorQuestions).toHaveLength(1)
+    expect(parsed.settings[0].memoNotes).toHaveLength(1)
+  })
 })
 
 describe('zones d\'injection préférées', () => {

@@ -52,3 +52,13 @@ input[type='range'].symptom-slider::-moz-range-thumb {
   box-shadow: 0 2px 8px rgba(13, 148, 136, 0.28);
   cursor: pointer;
 }
+
+/* Barre de progression des conseils bien-être */
+@keyframes tip-progress {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}

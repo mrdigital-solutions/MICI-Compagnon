@@ -124,3 +124,39 @@ describe('poids et score dans le rapport', () => {
     expect(h).toMatchObject({ average: 4, max: 8, remissionDays: 1, activeDays: 1 })
   })
 })
+
+describe('questions et notes dans le rapport', () => {
+  const base = {
+    startDate: '2026-11-01',
+    endDate: '2026-11-30',
+    injections: [],
+    labResults: [],
+    settings: {
+      ...DEFAULT_SETTINGS,
+      doctorQuestions: [
+        { id: 'a', text: 'Puis-je espacer ?', createdAt: '2026-11-02' },
+        { id: 'b', text: 'Déjà posée', createdAt: '2026-10-02', askedAt: '2026-10-20' },
+      ],
+    },
+    dailyEntries: [
+      { ...entry('2026-11-05', 0), notes: 'Ligne 1\nLigne 2' },
+      { ...entry('2026-10-05', 0), notes: 'Hors période' },
+    ],
+  }
+
+  it('inclut les questions à poser mais pas les notes par défaut', () => {
+    const r = buildMedicalReport(base)
+    expect(r.openQuestions).toEqual(['Puis-je espacer ?'])
+    expect(r.journalNotes).toEqual([])
+    const text = formatReportAsText(r)
+    expect(text).toContain('QUESTIONS À ABORDER\n- Puis-je espacer ?')
+    expect(text).not.toContain('NOTES DU JOURNAL')
+  })
+
+  it('inclut les notes de la période quand on le demande', () => {
+    const r = buildMedicalReport({ ...base, includeNotes: true, includeQuestions: false })
+    expect(r.openQuestions).toEqual([])
+    expect(r.journalNotes).toEqual([{ date: '2026-11-05', text: 'Ligne 1\nLigne 2' }])
+    expect(formatReportAsText(r)).toContain('Ligne 1 / Ligne 2')
+  })
+})

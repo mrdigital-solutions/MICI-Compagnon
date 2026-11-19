@@ -49,6 +49,8 @@ export function ReportTab() {
   const [customStart, setCustomStart] = useState(currentBounds.start)
   const [customEnd, setCustomEnd] = useState(currentBounds.end)
   const [copied, setCopied] = useState(false)
+  const [includeQuestions, setIncludeQuestions] = useState(true)
+  const [includeNotes, setIncludeNotes] = useState(false)
 
   const settings = useLiveQuery(() => db.settings.get('default'), [])
   const injections = useLiveQuery(() => db.injections.toArray(), [])
@@ -78,8 +80,10 @@ export function ReportTab() {
       injections: injections ?? [],
       dailyEntries: dailyEntries ?? [],
       labResults: labResults ?? [],
+      includeQuestions,
+      includeNotes,
     })
-  }, [startDate, endDate, settings, injections, dailyEntries, labResults])
+  }, [startDate, endDate, settings, injections, dailyEntries, labResults, includeQuestions, includeNotes])
 
   const plainText = useMemo(() => formatReportAsText(report), [report])
 
@@ -179,6 +183,30 @@ export function ReportTab() {
             </div>
           </div>
         )}
+        {/* Contenu facultatif du rapport */}
+        <div className="flex flex-wrap gap-2 pt-1">
+          {[
+            { label: 'Inclure mes questions', checked: includeQuestions, set: setIncludeQuestions },
+            { label: 'Inclure les notes du journal', checked: includeNotes, set: setIncludeNotes },
+          ].map((opt) => (
+            <label
+              key={opt.label}
+              className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold border cursor-pointer ${
+                opt.checked
+                  ? 'bg-teal-500/10 border-teal-500/40 text-teal-800 dark:text-teal-300'
+                  : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300'
+              }`}
+            >
+              <input
+                type="checkbox"
+                checked={opt.checked}
+                onChange={(e) => opt.set(e.target.checked)}
+                className="w-3.5 h-3.5 accent-teal-600"
+              />
+              {opt.label}
+            </label>
+          ))}
+        </div>
       </section>
 
       {/* Summary Grid */}

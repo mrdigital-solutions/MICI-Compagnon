@@ -87,6 +87,10 @@ export interface MedicalReportSummary {
   weight?: WeightSummary
   hbi?: HbiSummary
   vaccines: VaccineReportLine[]
+  /** Questions encore à poser (vide si l'option est désactivée) */
+  openQuestions: string[]
+  /** Notes libres du journal sur la période (vide si l'option est désactivée) */
+  journalNotes: { date: string; text: string }[]
 }
 
 export function buildWeightSummary(entries: DailyEntry[]): WeightSummary | undefined {
@@ -160,8 +164,13 @@ export function buildMedicalReport(params: {
   injections: InjectionRecord[]
   dailyEntries: DailyEntry[]
   labResults: LabResult[]
+  /** Inclure les questions pour le médecin (oui par défaut) */
+  includeQuestions?: boolean
+  /** Inclure les notes libres du journal (non par défaut : elles peuvent être personnelles) */
+  includeNotes?: boolean
 }): MedicalReportSummary {
   const { startDate, endDate, settings, injections, dailyEntries, labResults } = params
+  const { includeQuestions = true, includeNotes = false } = params
 
   const doneInjections = injections
     .filter((inj) => {
@@ -385,6 +394,14 @@ export function buildMedicalReport(params: {
     weight: buildWeightSummary(periodEntries),
     hbi: buildHbiSummary(periodEntries),
     vaccines,
+    openQuestions: includeQuestions
+      ? (settings.doctorQuestions ?? []).filter((q) => !q.askedAt).map((q) => q.text.trim()).filter(Boolean)
+      : [],
+    journalNotes: includeNotes
+      ? periodEntries
+          .filter((e) => (e.notes ?? '').trim())
+          .map((e) => ({ date: e.date, text: e.notes.trim() }))
+      : [],
   }
 }
 
@@ -395,6 +412,12 @@ export function formatReportAsText(report: MedicalReportSummary): string {
     `Période : du ${formatDateFr(report.startDate, { day: 'numeric', month: 'long', year: 'numeric' })} au ${formatDateFr(report.endDate, { day: 'numeric', month: 'long', year: 'numeric' })}`,
   )
   lines.push('')
+
+  if (report.openQuestions.length > 0) {
+    lines.push('QUESTIONS À ABORDER')
+    for (const q of report.openQuestions) lines.push(`- ${q}`)
+    lines.push('')
+  }
 
   lines.push(`1. TRAITEMENT (${report.treatmentName})`)
   lines.push(
@@ -502,6 +525,14 @@ export function formatReportAsText(report: MedicalReportSummary): string {
     for (const v of report.vaccines) {
       const last = v.lastDate ? `dernier le ${formatShortDateFr(v.lastDate)}` : 'aucune date enregistrée'
       lines.push(`- ${v.name} : ${last} — ${v.status}`)
+    }
+  }
+
+  if (report.journalNotes.length > 0) {
+    lines.push('')
+    lines.push('NOTES DU JOURNAL')
+    for (const n of report.journalNotes) {
+      lines.push(`- ${formatShortDateFr(n.date)} : ${n.text.replace(/\s*\n\s*/g, ' / ')}`)
     }
   }
 

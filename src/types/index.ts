@@ -92,6 +92,23 @@ export const CROHN_SIGNS: { id: CrohnSign; label: string; hint?: string }[] = [
   { id: 'pyoderma', label: 'Plaie de peau qui s’étend', hint: 'Pyoderma gangrenosum' },
 ]
 
+/** Question à poser au médecin (bloc-notes) */
+export interface DoctorQuestion {
+  id: string
+  text: string
+  createdAt: string // YYYY-MM-DD
+  /** Date à laquelle la question a été posée (absente = encore à poser) */
+  askedAt?: string
+}
+
+/** Note libre, indépendante des journées du journal */
+export interface MemoNote {
+  id: string
+  text: string
+  createdAt: string // ISO
+  updatedAt: string // ISO
+}
+
 /** Vaccin enregistré dans le carnet */
 export interface VaccinationRecord {
   id: string
@@ -172,6 +189,10 @@ export interface AppSettings {
   patientSex?: PatientSex
   /** Carnet de vaccination */
   vaccinations?: VaccinationRecord[]
+  /** Bloc-notes : questions pour le médecin */
+  doctorQuestions?: DoctorQuestion[]
+  /** Bloc-notes : notes libres */
+  memoNotes?: MemoNote[]
 }
 
 export type PatientSex = 'F' | 'M'

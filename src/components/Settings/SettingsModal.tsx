@@ -1,5 +1,6 @@
 import {
   Bell,
+  BellOff,
   Coffee,
   Lock,
   Download,
@@ -103,6 +104,18 @@ export function SettingsModal({ settings, onClose }: SettingsModalProps) {
 
   useEffect(() => {
     return subscribePwaInstall(() => setCanInstall(canPromptPwaInstall()))
+  }, [])
+
+  // Re-read the permission when the user comes back from the browser/phone settings.
+  useEffect(() => {
+    if (!isNotificationSupported()) return
+    const refresh = () => setNotifStatus(Notification.permission)
+    window.addEventListener('focus', refresh)
+    document.addEventListener('visibilitychange', refresh)
+    return () => {
+      window.removeEventListener('focus', refresh)
+      document.removeEventListener('visibilitychange', refresh)
+    }
   }, [])
 
   async function handleSaveSettings() {
@@ -445,18 +458,54 @@ export function SettingsModal({ settings, onClose }: SettingsModalProps) {
                   le calendrier.
                 </p>
 
-                <button
-                  type="button"
-                  onClick={handleEnableNotifications}
-                  className="w-full flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl border border-teal-500/40 text-teal-700 dark:text-teal-300 bg-teal-500/10 text-xs font-semibold"
-                >
-                  <Bell className="w-4 h-4" />
-                  {notifStatus === 'granted'
-                    ? 'Notifications système autorisées'
-                    : notifStatus === 'denied'
-                      ? 'Notifications bloquées par le navigateur'
-                      : 'Activer les notifications système'}
-                </button>
+                {notifStatus === 'granted' ? (
+                  <div className="w-full flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl text-teal-700 dark:text-teal-300 bg-teal-500/10 text-xs font-semibold">
+                    <Bell className="w-4 h-4" />
+                    Notifications système autorisées
+                  </div>
+                ) : notifStatus === 'denied' ? (
+                  <div className="w-full rounded-xl border border-amber-500/40 bg-amber-500/10 p-3 space-y-1.5 text-xs text-amber-800 dark:text-amber-200">
+                    <p className="flex items-center gap-2 font-semibold">
+                      <BellOff className="w-4 h-4 shrink-0" />
+                      Notifications bloquées par le navigateur
+                    </p>
+                    <p className="leading-relaxed">
+                      L'application ne peut plus les redemander elle-même. Pour les réactiver :
+                    </p>
+                    <ul className="list-disc pl-4 space-y-1 leading-relaxed">
+                      <li>
+                        <strong>Dans le navigateur :</strong> touchez l'icône à gauche de l'adresse du
+                        site (cadenas ou réglages) → Notifications → Autoriser.
+                      </li>
+                      <li>
+                        <strong>Appli installée (Android) :</strong> Paramètres du téléphone →
+                        Applications → MICI Compagnon → Notifications.
+                      </li>
+                      <li>
+                        <strong>Appli installée (iPhone) :</strong> Réglages → Notifications → MICI
+                        Compagnon.
+                      </li>
+                    </ul>
+                    <p className="leading-relaxed">Revenez ensuite ici : l'état se met à jour tout seul.</p>
+                  </div>
+                ) : notifStatus === 'unsupported' ? (
+                  <div className="w-full flex items-start gap-2 py-2.5 px-3 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-xs leading-relaxed">
+                    <BellOff className="w-4 h-4 shrink-0 mt-0.5" />
+                    <span>
+                      Ce navigateur ne gère pas les notifications. Sur iPhone, installez d'abord
+                      l'application sur l'écran d'accueil (Partager → « Sur l'écran d'accueil »).
+                    </span>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={handleEnableNotifications}
+                    className="w-full flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl border border-teal-500/40 text-teal-700 dark:text-teal-300 bg-teal-500/10 text-xs font-semibold"
+                  >
+                    <Bell className="w-4 h-4" />
+                    Activer les notifications système
+                  </button>
+                )}
               </div>
 
               <button

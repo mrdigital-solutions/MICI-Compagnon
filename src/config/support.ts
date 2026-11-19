@@ -21,6 +21,7 @@ export const CHANGELOG = [
     items: [
       'Installation plus simple : le bandeau « Installer » s’affiche maintenant sur tous les téléphones, avec la marche à suivre adaptée (iPhone, Android, ou lien ouvert depuis Facebook / Instagram).',
       'Paramètres : nouveau bouton « Comment installer l’application ? » qui explique pas à pas l’installation sur Android, sur iPhone et depuis Facebook / Instagram.',
+      'Notifications : si elles sont bloquées, les Paramètres expliquent maintenant comment les réactiver (navigateur, Android, iPhone), et l’état se met à jour tout seul au retour dans l’application.',
     ],
   },
   {

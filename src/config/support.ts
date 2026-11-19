@@ -11,23 +11,18 @@ export interface TreatmentPreset {
   isOral?: boolean
 }
 
-export const APP_VERSION = '1.6.0'
+export const APP_VERSION = '1.5.0'
 
 export const COPYRIGHT = '© 2026 MR Digital Solutions'
 
 export const CHANGELOG = [
   {
-    version: '1.6 — 20 nov.',
+    version: '1.5 — 20 nov.',
     items: [
       'Notes & questions (onglet Journal) : une liste « Questions pour mon médecin » à cocher une fois posées, un bloc-notes libre, et toutes les notes du journal retrouvables avec une recherche.',
       'Rapport Médecin : vos questions à poser apparaissent en tête du rapport. Les notes du journal peuvent y être ajoutées si vous le souhaitez.',
       'Conseils « Pour vous » : selon votre situation (injection demain, fièvre, selles liquides, stock bas, RDV proche, vaccin grippe…).',
       'Conseils enrichis (28 au lieu de 16), un conseil du jour différent chaque jour, défilement plus lent qui s’arrête quand on touche, et on peut glisser du doigt.',
-    ],
-  },
-  {
-    version: '1.5 — 20 nov.',
-    items: [
       'Suivi du poids : notez votre poids dans le journal, le Rapport Médecin affiche son évolution et signale une perte de 5 % ou plus.',
       'Score de Harvey-Bradshaw : calculé automatiquement à partir du journal (avec les nouveaux « Autres signes » : aphtes, fissure, fistule…), avec sa courbe dans le Rapport.',
       'Carnet de vaccination (onglet Bilans) : grippe, Covid, pneumocoque, zona, DTP, hépatite B, avec les rappels à faire et la liste des vaccins vivants interdits sous traitement.',
